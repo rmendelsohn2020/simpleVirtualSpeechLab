@@ -5,6 +5,10 @@ import scipy as sp
 import matplotlib.pyplot as plt
 import control as ct
 
+###Archiecture choice
+#arch = 'x_based'
+arch = 'q_based'
+
 dt = 0.01
 T = 4 #seconds
 
@@ -19,7 +23,16 @@ y = np.zeros((time_length,1))
 x = np.zeros((time_length,1))
 w = np.random.normal(0, 0.1, (time_length,1)) # process noise
 
+q_hat = np.zeros((time_length,1))
+q = np.zeros((time_length,1))
+
 r = np.sin(timeseires)
+#r= np.zeros((time_length,1))
+
+delta_r = np.zeros_like(r)
+for i in range(1, len(r)):
+    delta_r[i] = r[i] - r[i-1]
+print('delta_r shape:', delta_r.shape)
 
 
 A = np.array([1])
@@ -44,29 +57,85 @@ RN=1
 
 L, P, E = ct.dlqe(A, G, C, QN, RN)
 
+K=1
+L=1
 
 K1=K
 K2=K
 Kf=K
 
-for t in range(0,int(T/dt)-1):
-    #Brain Implementation
-    y_tilde[t]=y[t]-C*x_hat[t]
-    x_hat[t+1] = (L*y_tilde[t])+(A-B*K1)*x_hat[t]+(B*Kf)*r[t]
-    u[t+1]=(-K2*x_hat[t+1])+(Kf*r[t+1])
+if arch == 'x_based':
+    for t in range(0,int(T/dt)-1):
+        #Brain Implementation
+        y_tilde[t]=y[t]-C*x_hat[t]
+        x_hat[t+1] = (L*y_tilde[t])+(A-B*K1)*x_hat[t]+(B*Kf)*r[t]
+        u[t+1]=(-K2*x_hat[t+1])+(Kf*r[t+1])
 
-    #World
-    x[t+1]=A*x[t]+B*u[t]+w[t]
-    y[t+1]=C*x[t+1]
+        #World
+        x[t+1]=A*x[t]+B*u[t]+w[t]
+        y[t+1]=C*x[t+1]
+
+if arch == 'q_based':
+    #q-based architecture
+    for t in range(0,int(T/dt)-1):
+        #Brain Implementation
+        y_tilde[t]=(y[t])-(C*q_hat[t])-(C*r[t]) 
+        q_hat[t+1] = (L*y_tilde[t])+((A-B*K)*q_hat[t])+((A-B*K+B*Kf)*r[t])-(r[t+1]) 
+        u[t+1]=(-K2*q_hat[t+1])+((Kf-K)*r[t+1])
+
+        #World 
+        x[t+1]=A*x[t]+B*u[t]+w[t]
+        y[t+1]=C*x[t+1]
+
+        q[t]=x[t]-r[t]
     
-plt.figure(figsize=(10, 6))
-plt.title('Control System Simulation \n K=' + str(K) + ' Kf=' + str(Kf) + ' L=' + str(L))
+
+fig, ax = plt.subplots(2, figsize=(10, 6))
+plt.title('Control System Simulation\n K=' + str(K) + ' Kf=' + str(Kf) + ' L=' + str(L))
+
+ax[0].set_title(arch+'\n World')
+ax[0].plot(timeseires, x, label='x')
+ax[0].plot(timeseires, y, label='y', linestyle='--')
+if arch == 'q_based':
+    ax[0].plot(timeseires, q, label='q')
+
+ax[0].set_xlabel('Time (s)')
+ax[0].set_ylabel('Values')
+ax[0].legend()
+
+ax[1].set_title(arch+'\n Brain')
+ax[1].plot(timeseires, y_tilde, label='y_tilde')
+if arch == 'x_based':
+    ax[1].plot(timeseires, x_hat, label='x_hat')
+if arch == 'q_based':
+    ax[1].plot(timeseires, q_hat, label='q_hat')
+ax[1].plot(timeseires, u, label='u')
+ax[1].plot(timeseires, r, label='r')
+ax[1].plot(timeseires, w, label='w')
+ax[1].set_xlabel('Time (s)')
+ax[1].set_ylabel('Values')
+ax[1].legend()
+plt.tight_layout()
+plt.show()
+
+    
+
+
+
+
+
+
 plt.xlabel('Time (s)')
 plt.ylabel('Values')
 
 plt.plot(timeseires, x, label='x')
+plt.plot(timeseires, y, label='y', linestyle='--')
 plt.plot(timeseires, y_tilde, label='y_tilde', linestyle='--')
-plt.plot(timeseires, x_hat, label='x_hat')
+if arch == 'x_based':
+    plt.plot(timeseires, x_hat, label='x_hat')
+if arch == 'q_based':
+    plt.plot(timeseires, q_hat, label='q_hat')
+    plt.plot(timeseires, q, label='q')
 plt.plot(timeseires, u, label='u')
 plt.plot(timeseires, r, label='r')
 plt.plot(timeseires, w, label='w')
