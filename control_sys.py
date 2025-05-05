@@ -5,104 +5,179 @@ import scipy as sp
 import matplotlib.pyplot as plt
 import control as ct
 
-###Archiecture choice
-arch = 'x_based'
-#arch = 'q_based'
+save_figs = True
+save_figs_dir = '/Users/rachelmendelsohn/Desktop/Salk/ArticulatoryFeedback/NewVSLCodebase/Figures/'
 
-###Simulation properties
-dt = 0.01
-T = 4 #seconds
 
-timeseires=np.arange(0,T,dt)  
-time_length = len(timeseires)
+class ControlSystem:
+    def __init__(self, input_A, input_B, input_C, ref_type='sin'):
+       #NOTE: input arguments can describe certain features of the system matrices,
+       #but currently are used to directly as the matrices A, B, C, Q and R
+        self.A = input_A
+        self.B = input_B
+        self.C = input_C
 
-###System signals initialization
-y_tilde = np.zeros((time_length,1))
-print('y_tilde shape:', y_tilde.shape)
-x_hat = np.zeros((time_length,1))
-q_hat = np.zeros((time_length,1))
-u = np.zeros((time_length,1))
-y = np.zeros((time_length,1))
-x = np.zeros((time_length,1))
-w = np.random.normal(0, 0.1, (time_length,1)) # process noise
+        ###Simulation parameters
+        self.dt = 0.01
+        self.T = 4 #seconds
 
-r= np.zeros((time_length,1))
-# r = np.sin(timeseires)
-delta_r = np.zeros_like(r)
-for i in range(1, len(r)):
-    delta_r[i] = r[i] - r[i-1]
-print(delta_r)
+        self.timeseires=np.arange(0,self.T,self.dt)  
+        self.time_length = len(self.timeseires)
 
-###System properties
+        ###System parameters
+        self.y_tilde = np.zeros((self.time_length,1))
+        self.x_hat = np.zeros((self.time_length,1))
+        self.u = np.zeros((self.time_length,1))
+        self.y = np.zeros((self.time_length,1))
+        self.x = np.zeros((self.time_length,1))
+
+        np.random.seed(0) 
+        self.w = np.random.normal(0, 0.1, (self.time_length,1)) # process noise
+
+
+        self.q_hat = np.zeros((self.time_length,1))
+        self.q = np.zeros((self.time_length,1))
+
+        self.ref_type = ref_type
+        if self.ref_type == 'sin':
+            self.r = np.sin(self.timeseires)
+        elif self.ref_type == 'null':
+            self.r = np.zeros((self.time_length,1))
+
+
+        self.delta_r = np.zeros_like(self.r)
+        for i in range(1, len(self.r)):
+            self.delta_r[i] = self.r[i] - self.r[i-1]
+        print('delta_r shape:', self.delta_r.shape)
+
+
+        #Calculate control and sensor gains
+        #TODO: Calculated gains give worse result than 1?
+        self.Q=np.eye(np.shape(self.x[0])[0])  #TODO: Check dimensions
+        self.R=np.eye(np.shape(self.u[0])[0])
+
+        # Calculate the LQR gain
+        K, S, E = ct.dlqr(self.A, self.B, self.Q, self.R)
+
+        # Calculate the Kalman gain
+        G=np.eye(np.shape(self.w[0])[0])
+        QN = np.eye(np.shape(self.x[0])[0])
+        RN = np.eye(np.shape(self.y[0])[0])
+
+        # QN=1
+        # RN=1
+
+        L, P, E = ct.dlqe(self.A, G, self.C, QN, RN)
+
+        # #NOTE: Overwrite the gains with 1 for testing
+        # K=1
+        # L=1
+
+        #Different variable names for identical gains in different locations for clarity in knockouts and noise injections
+        self.K1=K
+        self.K2 =K
+        self.K3=K
+        self.K4=K
+        self.Kf=K
+
+        self.L1=L
+
+class PlotMixin:
+    def plot_all(self, arch):
+        plt.title(self.arch_title + ' Control System Simulation\n K=' + str(self.K1) + ' Kf=' + str(self.Kf) + ' L=' + str(self.L1))
+        plt.xlabel('Time (s)')
+        plt.ylabel('Values')
+        plt.plot(self.timeseires, self.x, label='x')
+        plt.plot(self.timeseires, self.y, label='y', linestyle='--')
+        plt.plot(self.timeseires, self.y_tilde, label='y_tilde', linestyle='--')
+        if hasattr(self, 'x_hat'):
+            plt.plot(self.timeseires, self.x_hat, label='x_hat')
+        if hasattr(self, 'q_hat'):
+            plt.plot(self.timeseires, self.q_hat, label='q_hat')
+        if hasattr(self, 'q'):
+            plt.plot(self.timeseires, self.q, label='q')
+
+        plt.plot(self.timeseires, self.u, label='u')
+        plt.plot(self.timeseires, self.r, label='r')
+        plt.plot(self.timeseires, self.w, label='w')
+
+        plt.legend()
+
+        if save_figs:
+            filename = f"{save_figs_dir}{arch}_plot_all_{self.ref_type}.png"
+            plt.savefig(filename)
+            print(f"Figure saved to {filename}")
+
+        plt.show()
+
+    def plot_compare_performance(self, arch):
+        plt.title(self.arch_title + ' Control System Simulation\n K=' + str(self.K1) + ' Kf=' + str(self.Kf) + ' L=' + str(self.L1))
+        plt.xlabel('Time (s)')
+        plt.ylabel('Values')
+        plt.plot(self.timeseires, self.x, label='x')
+        plt.plot(self.timeseires, self.y, label='y', linestyle='--')
+        plt.plot(self.timeseires, self.y_tilde, label='y_tilde', linestyle='--')
+        plt.plot(self.timeseires, self.r, label='r')
+
+        plt.legend()
+
+        if save_figs:
+            filename = f"{save_figs_dir}{arch}_compare_performance_{self.ref_type}.png"
+            plt.savefig(filename)
+            print(f"Figure saved to {filename}")
+
+        plt.show()
+
+
+class AbsoluteEstController(ControlSystem, PlotMixin):
+    def simulate(self):
+        self.arch_title = 'X-based'
+        for t in range(0,self.time_length-1):
+            #Brain Implementation
+            self.y_tilde[t]=self.y[t]-self.C*self.x_hat[t]
+            self.x_hat[t+1] = (self.L1*self.y_tilde[t])+(self.A-self.B*self.K1)*self.x_hat[t]+(self.B*self.Kf)*self.r[t]
+            self.u[t+1]=(-self.K2*self.x_hat[t+1])+(self.Kf*self.r[t+1])
+
+            #World
+            self.x[t+1]=self.A*self.x[t]+self.B*self.u[t]+self.w[t]
+            self.y[t+1]=self.C*self.x[t+1]
+
+            pass
+
+class RelativeEstController(ControlSystem, PlotMixin):
+    def simulate(self):
+        self.arch_title = 'Q-based'
+        for t in range(0,self.time_length-1):
+            #Brain Implementation
+            self.y_tilde[t]=(self.y[t])-(self.C*self.q_hat[t])-(self.C*self.r[t]) 
+            self.q_hat[t+1] = (self.L1*self.y_tilde[t])+((self.A-self.B*self.K1)*self.q_hat[t])+((self.A-self.B*self.K3+self.B*self.Kf)*self.r[t])-(self.r[t+1]) 
+            self.u[t+1]=(-self.K2*self.q_hat[t+1])+((self.Kf-self.K4)*self.r[t+1])
+
+            #World 
+            self.x[t+1]=self.A*self.x[t]+self.B*self.u[t]+self.w[t]
+            self.y[t+1]=C*self.x[t+1]
+
+            self.q[t]=self.x[t]-self.r[t]
+        pass
+
+
+
+
+#Simulation parameters
+ref_type = 'null' #'sin' or 'null'
+
 A = np.array([1])
 B = np.array([1])
 C = np.array([1])
 
-#Calculate control and sensor gains
-#TODO: Calculated gains give worse result than 1?
-Q=np.eye(np.shape(x[0])[0])  #TODO: Check dimensions
-R=np.eye(np.shape(u[0])[0])
 
-# Calculate the LQR gain
-K, S, E = ct.dlqr(A, B, Q, R)
-
-# Calculate the Kalman gain
-G=np.eye(np.shape(w[0])[0])
-QN = np.eye(np.shape(x[0])[0])
-RN = np.eye(np.shape(y[0])[0])
-
-QN=1
-RN=1
-
-L, P, E = ct.dlqe(A, G, C, QN, RN)
-
-Kf=K
-
-# K=1
-# L=1
-# Kf=1
-
-
-###Simulations with architecture block implementation
+#Run simulation
+arch= 'q_based' # or 'q_based'
 if arch == 'x_based':
-    #x-based architecture
-    for t in range(0,int(T/dt)-1):
-        #Brain Implementation
-        y_tilde[t]=y[t]-C*x_hat[t]
-        x_hat[t+1] = (L*y_tilde[t])+(A-B*K)*x_hat[t]+(B*Kf)*r[t]
-        u[t]=(-K*x_hat[t+1])+(Kf*r[t+1])
+    system = AbsoluteEstController(A, B, C, ref_type)
+elif arch == 'q_based':
+    system = RelativeEstController(A, B, C, ref_type)
 
-        #World
-        x[t+1]=A*x[t]+B*u[t]+w[t]
-        y[t+1]=C*x[t+1]
-if arch == 'q_based':
-    #q-based architecture
-    for t in range(0,int(T/dt)-1):
-        #Brain Implementation
-       
-        y_tilde[t]=y[t]-C*q_hat[t]-C*r[t] 
-        q_hat[t+1] = (L*y_tilde[t])+(A-B*K)*q_hat[t]+(A-B*K+B*Kf)*r[t]-delta_r[t+1]
-        u[t]=(-K2*q_hat[t+1])+((Kf-K)*r[t+1])
-
-        #World 
-        x[t+1]=A*x[t]+B*u[t]+w[t]
-        y[t+1]=C*x[t+1]
-
-#Plotting simulation results
-plt.figure(figsize=(10, 6))
-plt.title('Control System Simulation \n K=' + str(K) + ' Kf=' + str(Kf) + ' L=' + str(L))
-plt.xlabel('Time (s)')
-plt.ylabel('Values')
-
-plt.plot(timeseires, x, label='x')
-plt.plot(timeseires, y_tilde, label='y_tilde', linestyle='--')
-if arch == 'x_based':
-    plt.plot(timeseires, x_hat, label='x_hat')
-if arch == 'q_based':
-    plt.plot(timeseires, q_hat, label='q_hat')
-plt.plot(timeseires, u, label='u')
-plt.plot(timeseires, r, label='r')
-plt.plot(timeseires, w, label='w')
-
-plt.legend()
-plt.show()
+system.simulate()
+system.plot_all(arch)
+system.plot_compare_performance(arch)
