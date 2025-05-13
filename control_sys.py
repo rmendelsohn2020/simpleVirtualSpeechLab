@@ -63,7 +63,7 @@ class ControlSystem:
         #Calculate control and sensor gains
         #TODO: Calculated gains give worse result than 1?
         self.Q=np.eye(np.shape(self.x[0])[0])  #TODO: Check dimensions
-        tune_R=0.1
+        tune_R=1
         self.R=tune_R*np.eye(np.shape(self.u[0])[0])
 
         # Calculate the LQR gain
@@ -72,7 +72,7 @@ class ControlSystem:
         # Calculate the Kalman gain
         G=np.eye(np.shape(self.w[0])[0])
         QN = np.eye(np.shape(self.x[0])[0])
-        tune_RN=0.1
+        tune_RN=1
         RN = tune_RN*np.eye(np.shape(self.y[0])[0])
 
         # QN=1
@@ -168,11 +168,15 @@ class PlotMixin:
                 plot_labels = ['v', 'y', 'q_hat', 'u', 'x']
                 fig, axs = plt.subplots(len(plot_list), 1, figsize=(10, 8), sharex=True)
             if self.arch_title == 'X-based, Delays':
-                #plot v, y, x_s, x_hat, x_a, u, x
-                plot_list = [self.v, self.y, self.x_s, self.x_hat, self.x_a, self.u, self.x]
-                plot_labels = ['v', 'y', 'x_s', 'x_hat', 'x_a', 'u', 'x']
+                #plot v, y, y_tilde, x_s, x_hat, x_a, u, x
+                plot_list = [self.v, self.y, self.y_tilde, self.x_s, self.x_hat, self.x_a, self.u, self.x]
+                plot_labels = ['v', 'y', 'y_tilde', 'x_s', 'x_hat', 'x_a', 'u', 'x']
                 fig, axs = plt.subplots(len(plot_list), 1, figsize=(10, 8), sharex=True)
-
+            if self.arch_title == 'Q-based, Delays':
+                #plot v, y, y_tilde, x_s, q_hat, x_a, u, x
+                plot_list = [self.v, self.y, self.y_tilde, self.x_s, self.q_hat, self.x_a, self.u, self.x]
+                plot_labels = ['v', 'y', 'y_tilde', 'x_s', 'q_hat', 'x_a', 'u', 'x']
+                fig, axs = plt.subplots(len(plot_list), 1, figsize=(10, 8), sharex=True)
         
             for i, (data, label) in enumerate(zip(plot_list, plot_labels)):
                 axs[i].plot(self.timeseires[custom_time], data[custom_time], label=label)
@@ -249,9 +253,9 @@ class AbsEstDelayedController(ControlSystem, PlotMixin, AnalysisMixin):
     def simulate(self, delta_t_s=1, delta_t_a=1):
         self.arch_title = 'X-based, Delays'
         for t in range(0,self.time_length-1-(delta_t_s+1+delta_t_a)):
-            ##No ref:
             #Brain Implementation
-            self.x_s[t+delta_t_s]=self.y[t]-self.C*self.x_hat[t]-self.L_del*self.x_s[t]
+            self.y_tilde[t]=self.y[t]-self.C*self.x_hat[t]-self.L_del*self.x_s[t]
+            self.x_s[t+delta_t_s]=self.y_tilde[t]
             self.x_hat[t+delta_t_s+1] = (self.L1*self.x_s[t+delta_t_s])+(self.A*self.x_hat[t+delta_t_s])+(self.B*self.x_a[t+delta_t_s])+(self.B*self.Kf)*self.r[t+delta_t_s]
             self.x_a[t+delta_t_s+1+delta_t_a]=-self.K2*self.x_hat[t+delta_t_s+1]-self.K_del*self.x_a[t+delta_t_s+1]+self.Kf*self.r[t+delta_t_s+1]
             self.u[t+delta_t_s+1+delta_t_a]= self.x_a[t+delta_t_s+1+delta_t_a]
@@ -262,6 +266,21 @@ class AbsEstDelayedController(ControlSystem, PlotMixin, AnalysisMixin):
   
             pass
 
+class RelEstDelayedController(ControlSystem, PlotMixin, AnalysisMixin):
+    def simulate(self, delta_t_s=1, delta_t_a=1):
+        self.arch_title = 'Q-based, Delays'
+        for t in range(0,self.time_length-1-(delta_t_s+1+delta_t_a)):
+            #Brain Implementation
+            self.y_tilde[t]=(self.y[t])-(self.C*self.q_hat[t])-(self.C*self.r[t])-(self.L_del*self.x_s[t])
+            self.x_s[t+delta_t_s]=self.y_tilde[t]
+            self.q_hat[t+delta_t_s+1]=self.L1*self.x_s[t+delta_t_s]+self.A*self.q_hat[t+delta_t_s]+self.A*self.r[t+delta_t_s]+self.B*self.x_a[t+delta_t_s]+self.B*self.Kf*self.r[t+delta_t_s]-self.r[t+delta_t_s+1]
+            self.x_a[t+delta_t_s+1+delta_t_a]=(-self.K2*self.q_hat[t+delta_t_s+1])-self.K_del*self.x_a[t+delta_t_s+1]+((self.Kf-self.K4)*self.r[t+delta_t_s+1])
+            self.u[t+delta_t_s+1+delta_t_a]=self.x_a[t+delta_t_s+1+delta_t_a]
+
+            #World
+            self.x[t+1]=self.A*self.x[t]+self.B*self.u[t]+self.w[t]
+            self.y[t+1]=self.C*self.x[t+1]+self.v[t+1]
+            pass
 
 
 
@@ -274,18 +293,20 @@ C = np.array([1])
 
 
 #Run simulation
-ref_types = ['null'] #'sin' or 'null'
-archs= ['x_based_delayed'] #['x_based','q_based', 'x_based_delayed']
+ref_types = ['sin'] #'sin' or 'null'
+archs= ['q_based_delayed'] #['x_based','q_based', 'x_based_delayed', 'q_based_delayed']
 for ref_item in ref_types:
     print('Running simulation with reference type:', ref_item)
     for arch_item in archs:
         print('Running simulation with architecture:', arch_item)
         if arch_item == 'x_based':
             system = AbsoluteEstController(A, B, C, ref_item)
-        if arch_item == 'x_based_delayed':
+        elif arch_item == 'x_based_delayed':
             system = AbsEstDelayedController(A, B, C, ref_item)    
         elif arch_item == 'q_based':
             system = RelativeEstController(A, B, C, ref_item)
+        elif arch_item == 'q_based_delayed':
+            system = RelEstDelayedController(A, B, C, ref_item)
 
         system.simulate()
         print(arch_item, ref_item, 'RMSE:', system.rmse())
