@@ -5,7 +5,6 @@ import scipy as sp
 import matplotlib.pyplot as plt
 import control as ct
 
-import simple_functions as sf
 
 save_figs = True
 save_figs_dir = '/Users/rachelmendelsohn/Desktop/Salk/ArticulatoryFeedback/NewVSLCodebase/Figures/'
@@ -139,16 +138,6 @@ class PlotMixin:
         plt.show()
 
     def plot_transient(self, arch, custom_text=None):
-        # plt.title(self.arch_title + ' Control System Simulation\n K=' + str(self.K1) + ' Kf=' + str(self.Kf) + ' L=' + str(self.L1))
-        # plt.xlabel('Time (s)')
-        # plt.ylabel('Values')
-        # plt.plot(self.timeseires[self.start_dist-1:self.start_dist+2], self.x[self.start_dist-1:self.start_dist+2], label='x')
-        # if hasattr(self, 'x_hat'):
-        #     plt.plot(self.timeseires[self.start_dist-1:self.start_dist+2], self.x_hat[self.start_dist-1:self.start_dist+2], label='x_hat')
-        # if hasattr(self, 'q_hat'):
-        #     plt.plot(self.timeseires[self.start_dist-1:self.start_dist+2], self.q_hat[self.start_dist-1:self.start_dist+2], label='q_hat')
-        # plt.plot(self.timeseires[self.start_dist-1:self.start_dist+2], self.u[self.start_dist-1:self.start_dist+2], label='u')
-
 
             if custom_text:
                 plt.text(0.95, 0.05, custom_text, transform=plt.gca().transAxes,
@@ -156,23 +145,12 @@ class PlotMixin:
                      bbox=dict(facecolor='white', alpha=0.5))
                 
             custom_time = range(self.start_dist-1,self.start_dist+8)
-
-            if self.arch_title == 'X-based':
-                #plot v, y, x_hat, u, x
-                plot_list = [self.v, self.y, self.x_hat, self.u, self.x]
-                plot_labels = ['v', 'y', 'x_hat', 'u', 'x']
-                fig, axs = plt.subplots(len(plot_list), 1, figsize=(10, 8), sharex=True)
-            if  self.arch_title == 'Q-based':
-                #plot v, y, q_hat, u, x
-                plot_list = [self.v, self.y, self.q_hat, self.u, self.x]
-                plot_labels = ['v', 'y', 'q_hat', 'u', 'x']
-                fig, axs = plt.subplots(len(plot_list), 1, figsize=(10, 8), sharex=True)
-            if self.arch_title == 'X-based, Delays':
+            if 'Absolute Est. System' in self.arch_title:
                 #plot v, y, y_tilde, x_s, x_hat, x_a, u, x
                 plot_list = [self.v, self.y, self.y_tilde, self.x_s, self.x_hat, self.x_a, self.u, self.x]
                 plot_labels = ['v', 'y', 'y_tilde', 'x_s', 'x_hat', 'x_a', 'u', 'x']
                 fig, axs = plt.subplots(len(plot_list), 1, figsize=(10, 8), sharex=True)
-            if self.arch_title == 'Q-based, Delays':
+            if 'Relative Est. System' in self.arch_title:
                 #plot v, y, y_tilde, x_s, q_hat, x_a, u, x
                 plot_list = [self.v, self.y, self.y_tilde, self.x_s, self.q_hat, self.x_a, self.u, self.x]
                 plot_labels = ['v', 'y', 'y_tilde', 'x_s', 'q_hat', 'x_a', 'u', 'x']
@@ -218,40 +196,13 @@ class PlotMixin:
         plt.show()
 
 
-class AbsoluteEstController(ControlSystem, PlotMixin, AnalysisMixin):
-    def simulate(self):
-        self.arch_title = 'X-based'
-        for t in range(0,self.time_length-1):
-            #Brain Implementation
-            self.y_tilde[t]=self.y[t]-self.C*self.x_hat[t]
-            self.x_hat[t+1] = (self.L1*self.y_tilde[t])+(self.A-self.B*self.K1)*self.x_hat[t]+(self.B*self.Kf)*self.r[t]
-            self.u[t+1]=-(self.K2*self.x_hat[t+1])+(self.Kf*self.r[t+1])
 
-            #World
-            self.x[t+1]=self.A*self.x[t]+self.B*self.u[t]+self.w[t]
-            self.y[t+1]=self.C*self.x[t+1]+self.v[t+1]
-
-            pass
-
-class RelativeEstController(ControlSystem, PlotMixin, AnalysisMixin):
-    def simulate(self):
-        self.arch_title = 'Q-based'
-        for t in range(0,self.time_length-1):
-            #Brain Implementation
-            self.y_tilde[t]=(self.y[t])-(self.C*self.q_hat[t])-(self.C*self.r[t]) 
-            self.q_hat[t+1] = (self.L1*self.y_tilde[t])+((self.A-self.B*self.K1)*self.q_hat[t])+((self.A-self.B*self.K3+self.B*self.Kf)*self.r[t])-(self.r[t+1]) 
-            self.u[t+1]=(-self.K2*self.q_hat[t+1])+((self.Kf-self.K4)*self.r[t+1])
-
-            #World 
-            self.x[t+1]=self.A*self.x[t]+self.B*self.u[t]+self.w[t]
-            self.y[t+1]=C*self.x[t+1]+self.v[t+1]
-
-            self.q[t]=self.x[t]-self.r[t]
-        pass
-
-class AbsEstDelayedController(ControlSystem, PlotMixin, AnalysisMixin):
+class AbsEstController(ControlSystem, PlotMixin, AnalysisMixin):
     def simulate(self, delta_t_s=1, delta_t_a=1):
-        self.arch_title = 'X-based, Delays'
+        if delta_t_s == 0 and delta_t_a == 0:
+            self.arch_title = 'Absolute Est. System, No Delays'
+        else:
+            self.arch_title = 'Absolute Est. System, Delays (Sensor Delay: ' + str(delta_t_s) + ', Actuator Delay: ' + str(delta_t_a) + ')'
         for t in range(0,self.time_length-1-(delta_t_s+1+delta_t_a)):
             #Brain Implementation
             self.y_tilde[t]=self.y[t]-self.C*self.x_hat[t]-self.L_del*self.x_s[t]
@@ -266,9 +217,12 @@ class AbsEstDelayedController(ControlSystem, PlotMixin, AnalysisMixin):
   
             pass
 
-class RelEstDelayedController(ControlSystem, PlotMixin, AnalysisMixin):
+class RelEstController(ControlSystem, PlotMixin, AnalysisMixin):
     def simulate(self, delta_t_s=1, delta_t_a=1):
-        self.arch_title = 'Q-based, Delays'
+        if delta_t_s == 0 and delta_t_a == 0:
+            self.arch_title = 'Relative Est. System, No Delays'
+        else:
+            self.arch_title = 'Relative Est. System, Delays (Sensor Delay: ' + str(delta_t_s) + ', Actuator Delay: ' + str(delta_t_a) + ')'
         for t in range(0,self.time_length-1-(delta_t_s+1+delta_t_a)):
             #Brain Implementation
             self.y_tilde[t]=(self.y[t])-(self.C*self.q_hat[t])-(self.C*self.r[t])-(self.L_del*self.x_s[t])
@@ -282,31 +236,28 @@ class RelEstDelayedController(ControlSystem, PlotMixin, AnalysisMixin):
             self.y[t+1]=self.C*self.x[t+1]+self.v[t+1]
             pass
 
-
-
 #Simulation parameters
-
 
 A = np.array([0.5])
 B = np.array([1])
 C = np.array([1])
 
-
 #Run simulation
 ref_types = ['sin'] #'sin' or 'null'
-archs= ['q_based_delayed'] #['x_based','q_based', 'x_based_delayed', 'q_based_delayed']
+archs= ['q_based'] #['x_based','q_based']
+actuator_delays = 0
+sensor_delays = 3
+
 for ref_item in ref_types:
     print('Running simulation with reference type:', ref_item)
     for arch_item in archs:
         print('Running simulation with architecture:', arch_item)
         if arch_item == 'x_based':
-            system = AbsoluteEstController(A, B, C, ref_item)
-        elif arch_item == 'x_based_delayed':
-            system = AbsEstDelayedController(A, B, C, ref_item)    
+            system = AbsEstController(A, B, C, ref_item)    
         elif arch_item == 'q_based':
-            system = RelativeEstController(A, B, C, ref_item)
-        elif arch_item == 'q_based_delayed':
-            system = RelEstDelayedController(A, B, C, ref_item)
+            system = RelEstController(A, B, C, ref_item)
+        else:
+            raise ValueError('Invalid architecture:', arch_item)
 
         system.simulate()
         print(arch_item, ref_item, 'RMSE:', system.rmse())
