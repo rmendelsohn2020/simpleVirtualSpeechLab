@@ -31,13 +31,15 @@ class PlotMixin:
 
         plt.show()
 
-    def plot_transient(self, arch, custom_text=None):
+    def plot_transient(self, arch, start_dist=None, custom_text=None):
         if custom_text:
             plt.text(0.95, 0.05, custom_text, transform=plt.gca().transAxes,
                      fontsize=12, verticalalignment='bottom', horizontalalignment='right',
                      bbox=dict(facecolor='white', alpha=0.5))
-                
+        if start_dist:
+            self.start_dist = start_dist
         custom_time = range(self.start_dist-1,self.start_dist+8)
+
         if 'Absolute Est. System' in self.arch_title:
             plot_list = [self.v, self.y, self.y_tilde, self.x_s, self.x_hat, self.x_a, self.u, self.x]
             plot_labels = ['v', 'y', 'y_tilde', 'x_s', 'x_hat', 'x_a', 'u', 'x']
@@ -133,4 +135,11 @@ class PlotMixin:
             plt.savefig(filename)
             print(f"Figure saved to {filename}")
 
-        plt.show() 
+        plt.show()
+    def plot_signal(self, signal, label):
+        plt.plot(self.timeseries, signal, label=label)
+        plt.legend()
+        plt.show()
+
+
+   

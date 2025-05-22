@@ -2,7 +2,7 @@ import numpy as np
 import control as ct
 
 class ControlSystem:
-    def __init__(self, input_A, input_B, input_C, ref_type='sin', dist_signals=['State']):
+    def __init__(self, input_A, input_B, input_C, ref_type='sin', dist_custom=None, dist_type=['State']):
         #NOTE: input arguments can describe certain features of the system matrices,
         #but currently are used to directly as the matrices A, B, C, Q and R
         self.A = input_A
@@ -51,24 +51,28 @@ class ControlSystem:
         self.w = np.random.normal(0, 0.01, (self.time_length, 1))  # Gaussian noise with mean 0 and std 0.01
 
         #Measurement noise
+
         self.v = np.zeros((self.time_length,1)) # measurement noise
         self.v_aud = np.zeros((self.time_length,1)) # auditory measurement noise
         self.v_som = np.zeros((self.time_length,1)) # somatosensory measurement noise
 
-        self.start_dist = self.time_length//2
-        self.dist_timesteps = range(self.start_dist, self.start_dist+30)
-        
-        dist_list=[]
-        if 'Auditory' in dist_signals:
-            dist_list.append(self.v_aud)
-        if 'Somatosensory' in dist_signals:
-            dist_list.append(self.v_som)
-        if 'State' in dist_signals:
-            dist_list.append(self.v)
 
-        for i in self.dist_timesteps:
-            for v in dist_list:
-                v[i] = v[i]+0.1
+        if dist_custom is not None:
+            dist_sig = dist_custom
+        else:
+            #Default to a step change in the state at the middle of the simulation
+            dist_sig = np.zeros((self.time_length,1))
+            self.start_dist = self.time_length//2
+            self.dist_timesteps = range(self.start_dist, self.start_dist+30)
+            for i in self.dist_timesteps:
+                dist_sig[i] = dist_sig[i]+0.1
+
+        if 'Auditory' in dist_type:
+            self.v_aud = dist_sig
+        if 'Somatosensory' in dist_type:
+            self.v_som = dist_sig
+        if 'State' in dist_type:
+            self.v = dist_sig
 
 
         self.q_hat = np.zeros((self.time_length,1))
