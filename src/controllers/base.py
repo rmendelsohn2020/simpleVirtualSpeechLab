@@ -2,7 +2,7 @@ import numpy as np
 import control as ct
 
 class ControlSystem:
-    def __init__(self, input_A, input_B, input_C, ref_type='sin'):
+    def __init__(self, input_A, input_B, input_C, ref_type='sin', dist_signals=['State']):
         #NOTE: input arguments can describe certain features of the system matrices,
         #but currently are used to directly as the matrices A, B, C, Q and R
         self.A = input_A
@@ -19,6 +19,7 @@ class ControlSystem:
         ###System parameters
         self.y_tilde = np.zeros((self.time_length,1))
         self.x_hat = np.zeros((self.time_length,1))
+        self.q_hat = np.zeros((self.time_length,1))
         self.u = np.zeros((self.time_length,1))
         self.y = np.zeros((self.time_length,1))
         self.x = np.zeros((self.time_length,1))
@@ -27,14 +28,48 @@ class ControlSystem:
         self.x_s = np.zeros_like(self.x_hat)
         self.x_a = np.zeros_like(self.x_hat)
 
-        np.random.seed(0) 
-        self.w = np.zeros((self.time_length,1))
+        #Sensory channel states
+        ##Somatosensory
+        self.y_som = np.zeros_like(self.y)
+        self.y_tilde_som = np.zeros_like(self.y)
+        self.x_s_som = np.zeros_like(self.x_s)
+        self.x_a_som = np.zeros_like(self.x_a)
+        self.x_hat_som = np.zeros_like(self.x_hat)
+        self.q_hat_som = np.zeros_like(self.q_hat)
+        ##Auditory
+        self.y_aud = np.zeros_like(self.y)
+        self.y_tilde_aud = np.zeros_like(self.y)
+        self.x_s_aud = np.zeros_like(self.x_s)
+        self.x_a_aud = np.zeros_like(self.x_a)
+        self.x_hat_aud = np.zeros_like(self.x_hat)
+        self.q_hat_aud = np.zeros_like(self.q_hat)
 
+
+        np.random.seed(0) 
+        #self.w = np.zeros((self.time_length,1))
+        # State noise
+        self.w = np.random.normal(0, 0.01, (self.time_length, 1))  # Gaussian noise with mean 0 and std 0.01
+
+        #Measurement noise
         self.v = np.zeros((self.time_length,1)) # measurement noise
+        self.v_aud = np.zeros((self.time_length,1)) # auditory measurement noise
+        self.v_som = np.zeros((self.time_length,1)) # somatosensory measurement noise
+
         self.start_dist = self.time_length//2
         self.dist_timesteps = range(self.start_dist, self.start_dist+30)
+        
+        dist_list=[]
+        if 'Auditory' in dist_signals:
+            dist_list.append(self.v_aud)
+        if 'Somatosensory' in dist_signals:
+            dist_list.append(self.v_som)
+        if 'State' in dist_signals:
+            dist_list.append(self.v)
+
         for i in self.dist_timesteps:
-            self.v[i] = self.v[i]+0.1
+            for v in dist_list:
+                v[i] = v[i]+0.1
+
 
         self.q_hat = np.zeros((self.time_length,1))
         self.q = np.zeros((self.time_length,1))
@@ -45,31 +80,36 @@ class ControlSystem:
         elif self.ref_type == 'null':
             self.r = np.zeros((self.time_length,1))
 
-        #Calculate control and sensor gains
-        self.Q=np.eye(np.shape(self.x[0])[0])
-        tune_R=1
-        self.R=tune_R*np.eye(np.shape(self.u[0])[0])
+        # Calculate gains for main controller
+        self.calculate_gains(self.A, self.B, self.C)
+        
+        # Calculate gains for auditory and somatosensory controllers
+        self.calculate_gains(self.A, self.B, self.C, prefix='aud_')
+        self.calculate_gains(self.A, self.B, self.C, prefix='som_')
+
+    def calculate_gains(self, A, B, C, tune_R=1, tune_RN=1, prefix=''):
+        # Calculate control and sensor gains
+        Q = np.eye(np.shape(self.x[0])[0])
+        R = tune_R * np.eye(np.shape(self.u[0])[0])
 
         # Calculate the LQR gain
-        K, S, E = ct.dlqr(self.A, self.B, self.Q, self.R)
+        K, S, E = ct.dlqr(A, B, Q, R)
 
         # Calculate the Kalman gain
-        G=np.eye(np.shape(self.w[0])[0])
+        G = np.eye(np.shape(self.w[0])[0])
         QN = np.eye(np.shape(self.x[0])[0])
-        tune_RN=1
-        RN = tune_RN*np.eye(np.shape(self.y[0])[0])
+        RN = tune_RN * np.eye(np.shape(self.y[0])[0])
 
-        L, P, E = ct.dlqe(self.A, G, self.C, QN, RN)
+        L, P, E = ct.dlqe(A, G, C, QN, RN)
 
-        #Different variable names for identical gains in different locations for clarity in knockouts and noise injections
-        self.K1=K
-        self.K2=K
-        self.K3=K
-        self.K4=K
-        self.Kf=K
+        # Set gains with optional prefix for different controllers
+        setattr(self, prefix + 'K1', K)
+        setattr(self, prefix + 'K2', K) 
+        setattr(self, prefix + 'K3', K)
+        setattr(self, prefix + 'K4', K)
+        setattr(self, prefix + 'Kf', K)
+        setattr(self, prefix + 'L1', L)
 
-        self.L1=L
-
-        #Internal feedback gains for time delay compensation
-        self.L_del=0
-        self.K_del=0 
+        # Internal feedback gains for time delay compensation
+        setattr(self, prefix + 'L_del', 0)
+        setattr(self, prefix + 'K_del', 0)

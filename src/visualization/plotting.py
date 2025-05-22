@@ -42,15 +42,64 @@ class PlotMixin:
             plot_list = [self.v, self.y, self.y_tilde, self.x_s, self.x_hat, self.x_a, self.u, self.x]
             plot_labels = ['v', 'y', 'y_tilde', 'x_s', 'x_hat', 'x_a', 'u', 'x']
             fig, axs = plt.subplots(len(plot_list), 1, figsize=(10, 8), sharex=True)
-        if 'Relative Est. System' in self.arch_title:
+        elif 'Relative Est. System' in self.arch_title:
             plot_list = [self.v, self.y, self.y_tilde, self.x_s, self.q_hat, self.x_a, self.u, self.x]
             plot_labels = ['v', 'y', 'y_tilde', 'x_s', 'q_hat', 'x_a', 'u', 'x']
             fig, axs = plt.subplots(len(plot_list), 1, figsize=(10, 8), sharex=True)
+        elif '2-Sensor System' in self.arch_title:
+            # Define pairs of signals to plot side by side
+            if 'Relative Est.' in self.arch_title:
+                signal_pairs = [
+                    (self.w, self.v, 'w', 'v'),
+                    (self.v_aud, self.v_som, 'v_aud', 'v_som'),
+                    (self.y_aud, self.y_som, 'y_aud', 'y_som'),
+                    (self.y_tilde_aud, self.y_tilde_som, 'y_tilde_aud', 'y_tilde_som'),
+                    (self.x_s_aud, self.x_s_som, 'x_s_aud', 'x_s_som'),
+                    (self.q_hat_aud, self.q_hat_som, 'q_hat_aud', 'q_hat_som'),
+                    (self.x_a_aud, self.x_a_som, 'x_a_aud', 'x_a_som'),
+                    (self.u, self.x, 'u', 'x')
+                ]
+            else:
+                signal_pairs = [
+                    (self.w, self.v, 'w', 'v'),
+                    (self.v_aud, self.v_som, 'v_aud', 'v_som'),
+                    (self.y_aud, self.y_som, 'y_aud', 'y_som'),
+                    (self.y_tilde_aud, self.y_tilde_som, 'y_tilde_aud', 'y_tilde_som'),
+                    (self.x_s_aud, self.x_s_som, 'x_s_aud', 'x_s_som'),
+                    (self.x_hat_aud, self.x_hat_som, 'x_hat_aud', 'x_hat_som'),
+                    (self.x_a_aud, self.x_a_som, 'x_a_aud', 'x_a_som'),
+                    (self.u, self.x, 'u', 'x')
+                ]
+            # Create subplots with 2 columns
+            n_rows = len(signal_pairs)
+            fig, axs = plt.subplots(n_rows, 2, figsize=(12, 1*n_rows), sharex=True)
+            
+            # Plot each pair of signals
+            for i, (data1, data2, label1, label2) in enumerate(signal_pairs):
+                axs[i, 0].plot(self.timeseires[custom_time], data1[custom_time], label=label1)
+                axs[i, 0].set_ylabel(label1)
+                axs[i, 0].legend(loc='upper right')
+                
+                axs[i, 1].plot(self.timeseires[custom_time], data2[custom_time], label=label2)
+                axs[i, 1].set_ylabel(label2)
+                axs[i, 1].legend(loc='upper right')
+                
+                # Add column labels
+                if i == 0:
+                    axs[i, 0].set_title('Auditory')
+                    axs[i, 1].set_title('Somatosensory')
+            
+            # Adjust layout
+            plt.tight_layout()
+            
+        else:
+            raise ValueError(f"Unknown system type: {self.arch_title}")
     
-        for i, (data, label) in enumerate(zip(plot_list, plot_labels)):
-            axs[i].plot(self.timeseires[custom_time], data[custom_time], label=label)
-            axs[i].set_ylabel(label)
-            axs[i].legend('upper right')
+        if '2-Sensor System' not in self.arch_title:
+            for i, (data, label) in enumerate(zip(plot_list, plot_labels)):
+                axs[i].plot(self.timeseires[custom_time], data[custom_time], label=label)
+                axs[i].set_ylabel(label)
+                axs[i].legend(loc='upper right')
 
         fig.suptitle(self.arch_title + ' Control System Simulation\n K=' + str(self.K1) + ' Kf=' + str(self.Kf) + ' L=' + str(self.L1))
 
