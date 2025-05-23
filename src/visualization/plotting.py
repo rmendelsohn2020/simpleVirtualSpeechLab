@@ -1,21 +1,28 @@
 import matplotlib.pyplot as plt
+from utils.pitchpert_dataprep import truncate_data
 
 # Configuration
 save_figs = True
 save_figs_dir = '/Users/rachelmendelsohn/Desktop/Salk/ArticulatoryFeedback/NewVSLCodebase/Figures/'
 
 class PlotMixin:
-    def plot_all(self, arch, custom_text=None):
+    def plot_all(self, arch, custom_sig=None, custom_text=None):
         plt.title(self.arch_title + ' Control System Simulation\n K=' + str(self.K1) + ' Kf=' + str(self.Kf) + ' L=' + str(self.L1))
         plt.xlabel('Time (s)')
         plt.ylabel('Values')
-        plt.plot(self.timeseires, self.x, label='x')
+        plt.plot(self.timeseries, self.x, label='x')
         if hasattr(self, 'x_hat'):
-            plt.plot(self.timeseires, self.x_hat, label='x_hat')
+            plt.plot(self.timeseries, self.x_hat, label='x_hat')
         if hasattr(self, 'q_hat'):
-            plt.plot(self.timeseires, self.q_hat, label='q_hat')
+            plt.plot(self.timeseries, self.q_hat, label='q_hat')
         if hasattr(self, 'q'):
-            plt.plot(self.timeseires, self.q, label='q')
+            plt.plot(self.timeseries, self.q, label='q')
+
+        if custom_sig:
+            if custom_sig == 'dist':
+                plt.plot(self.timeseries, self.v_aud, label='v_aud')
+                plt.plot(self.timeseries, self.v_som, label='v_som')
+
 
         if custom_text:
             plt.text(0.95, 0.05, custom_text, transform=plt.gca().transAxes,
@@ -78,11 +85,11 @@ class PlotMixin:
             
             # Plot each pair of signals
             for i, (data1, data2, label1, label2) in enumerate(signal_pairs):
-                axs[i, 0].plot(self.timeseires[custom_time], data1[custom_time], label=label1)
+                axs[i, 0].plot(self.timeseries[custom_time], data1[custom_time], label=label1)
                 axs[i, 0].set_ylabel(label1)
                 axs[i, 0].legend(loc='upper right')
                 
-                axs[i, 1].plot(self.timeseires[custom_time], data2[custom_time], label=label2)
+                axs[i, 1].plot(self.timeseries[custom_time], data2[custom_time], label=label2)
                 axs[i, 1].set_ylabel(label2)
                 axs[i, 1].legend(loc='upper right')
                 
@@ -99,7 +106,7 @@ class PlotMixin:
     
         if '2-Sensor System' not in self.arch_title:
             for i, (data, label) in enumerate(zip(plot_list, plot_labels)):
-                axs[i].plot(self.timeseires[custom_time], data[custom_time], label=label)
+                axs[i].plot(self.timeseries[custom_time], data[custom_time], label=label)
                 axs[i].set_ylabel(label)
                 axs[i].legend(loc='upper right')
 
@@ -117,10 +124,10 @@ class PlotMixin:
         plt.title(self.arch_title + ' Control System Simulation\n K=' + str(self.K1) + ' Kf=' + str(self.Kf) + ' L=' + str(self.L1))
         plt.xlabel('Time (s)')
         plt.ylabel('Values')
-        plt.plot(self.timeseires, self.x, label='x')
-        plt.plot(self.timeseires, self.y, label='y', linestyle='--')
-        plt.plot(self.timeseires, self.y_tilde, label='y_tilde', linestyle='--')
-        plt.plot(self.timeseires, self.r, label='r')
+        plt.plot(self.timeseries, self.x, label='x')
+        plt.plot(self.timeseries, self.y, label='y', linestyle='--')
+        plt.plot(self.timeseries, self.y_tilde, label='y_tilde', linestyle='--')
+        plt.plot(self.timeseries, self.r, label='r')
 
         if custom_text:
             plt.text(0.95, 0.05, custom_text, transform=plt.gca().transAxes,
@@ -138,6 +145,24 @@ class PlotMixin:
         plt.show()
     def plot_signal(self, signal, label):
         plt.plot(self.timeseries, signal, label=label)
+        plt.legend()
+        plt.show()
+    def plot_truncated(self, start_time, end_time):
+        #signals to plot
+        signals = [self.v_aud, self.v_som, self.y_aud, self.x]
+        labels = ['v_aud', 'v_som', 'y_aud', 'x']
+
+        #truncate data
+        for i, signal in enumerate(signals):
+            signal_trunc = truncate_data(self.timeseries, signal, start_time, end_time)
+            time_trunc = truncate_data(self.timeseries, self.timeseries, start_time, end_time)
+            plt.plot(time_trunc, signal_trunc, label=labels[i], linestyle='--')
+
+        # plt.plot(self.time_trunc[start_time:end_time], self.v_aud[start_time:end_time], label='v_aud', linestyle='--')
+        # plt.plot(self.timeseries[start_time:end_time], self.v_som[start_time:end_time], label='v_som', linestyle='--')
+        # plt.plot(self.timeseries[start_time:end_time], self.y_aud[start_time:end_time], label='y_aud', linestyle='-')
+        # plt.plot(self.timeseries[start_time:end_time], self.x[start_time:end_time], label='x', linestyle='-')
+
         plt.legend()
         plt.show()
 

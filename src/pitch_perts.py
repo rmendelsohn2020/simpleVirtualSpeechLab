@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import yaml
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 
@@ -10,6 +11,22 @@ from visualization.plotting import PlotMixin
 from utils.pitchpert_dataprep import data_prep, truncate_data
 from utils.signal_synth import RampedStep1D
 
+
+
+# Initialize the config loader
+with open("src/configs/experiment.yaml", "r") as f:
+    config_expt = yaml.safe_load(f)
+
+with open("src/configs/paths.yaml", "r") as f:
+    config_paths = yaml.safe_load(f)
+
+# Example usage
+dt = config_expt['simulation']['sec_per_step']
+A = np.array(config_expt['starting_params']['system']['A'])
+
+# Get experiment parameters
+
+#TODO: Make config file that doesn't get pushed, add to gitignore
 #Save Path
 save_path = '/Users/rachelmendelsohn/Desktop/Salk/ArticulatoryFeedback/NewVSLCodebase/Interp_Data'
 #Calibration Data Path
@@ -17,6 +34,7 @@ data_dir='/Users/rachelmendelsohn/Desktop/Salk/ArticulatoryFeedback/Calibration_
 filename = 'secs_Smith-et-al-2020-auditory-perturbation-baseline-normalized.csv'
 data_path = os.path.join(data_dir, filename)
 
+#TODO: Experiment config file
 ###Define Perturbation Experiment Parameters
 duration = 10.8 # Duration of each trial in seconds
 sec_per_step = 0.01
@@ -47,20 +65,25 @@ pert_signal = RampedStep1D(duration, dt=sec_per_step, tstart_step=pert_onset, t_
                                             dist_duration=pert_duration, ramp_up_duration=ramp_up_duration, 
                                             ramp_down_duration=ramp_down_duration,
                                         sig_label='Step pertubation')
-pert_signal.plot_signal(pert_signal.signal, 'Perturbation Signal')
+#pert_signal.plot_signal(pert_signal.signal, 'Perturbation Signal')
 
 ###Run Simulation
 # Simulation parameters
 A = np.array([0.5])
 B = np.array([1])
 C = np.array([1])
-ref_item = 'sin' #'sin' or 'null'
-actuator_delays = 0
-sensor_delays = 3
 
-system = AbsEstController(A, B, C, ref_item, dist_custom=pert_signal.signal, dist_type='Auditory')    
-system.simulate_with_2sensors()
-system.plot_transient('abs2sens', start_dist=pert_signal.start_ramp_up) 
-system.plot_all('abs2sens')
+R_val=0.5
+RN_val=1
 
+ref_item = 'null' #'sin' or 'null'
+actuator_delay = int(0.01/sec_per_step)
+sensor_delay_aud = int(0.1/sec_per_step)
+sensor_delay_som = int(0.1/sec_per_step)
+
+system = AbsEstController(A, B, C, ref_item, dist_custom=pert_signal.signal, dist_type=['Auditory','Somatosensory'], timeseries=T_sim, tune_R=R_val, tune_RN=RN_val)    
+system.simulate_with_2sensors(delta_t_s_aud=sensor_delay_aud, delta_t_s_som=sensor_delay_som, delta_t_a=actuator_delay)
+#system.plot_transient('abs2sens', start_dist=pert_signal.start_ramp_up) 
+system.plot_all('abs2sens', custom_sig='dist')
+#system.plot_truncated(truncate_start, truncate_end)
   

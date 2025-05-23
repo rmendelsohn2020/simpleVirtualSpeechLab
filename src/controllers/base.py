@@ -2,7 +2,7 @@ import numpy as np
 import control as ct
 
 class ControlSystem:
-    def __init__(self, input_A, input_B, input_C, ref_type='sin', dist_custom=None, dist_type=['State']):
+    def __init__(self, input_A, input_B, input_C, ref_type='sin', dist_custom=None, dist_type=['State'], timeseries=None, tune_R=1, tune_RN=1):
         #NOTE: input arguments can describe certain features of the system matrices,
         #but currently are used to directly as the matrices A, B, C, Q and R
         self.A = input_A
@@ -10,11 +10,15 @@ class ControlSystem:
         self.C = input_C
 
         ###Simulation parameters
-        self.dt = 0.01
-        self.T = 4 #seconds
+        if timeseries is not None:
+            self.timeseries = timeseries
+            self.time_length = len(self.timeseries)
+        else:    
+            self.dt = 0.01
+            self.T = 4 #seconds
 
-        self.timeseires=np.arange(0,self.T,self.dt)  
-        self.time_length = len(self.timeseires)
+            self.timeseries=np.arange(0,self.T,self.dt)  
+            self.time_length = len(self.timeseries)
 
         ###System parameters
         self.y_tilde = np.zeros((self.time_length,1))
@@ -78,9 +82,10 @@ class ControlSystem:
         self.q_hat = np.zeros((self.time_length,1))
         self.q = np.zeros((self.time_length,1))
 
+        print(type(timeseries))
         self.ref_type = ref_type
         if self.ref_type == 'sin':
-            self.r = np.sin(self.timeseires).reshape(-1, 1)
+            self.r = np.sin(self.timeseries).reshape(-1, 1)
         elif self.ref_type == 'null':
             self.r = np.zeros((self.time_length,1))
 
@@ -88,8 +93,8 @@ class ControlSystem:
         self.calculate_gains(self.A, self.B, self.C)
         
         # Calculate gains for auditory and somatosensory controllers
-        self.calculate_gains(self.A, self.B, self.C, prefix='aud_')
-        self.calculate_gains(self.A, self.B, self.C, prefix='som_')
+        self.calculate_gains(self.A, self.B, self.C, tune_R=tune_R, tune_RN=tune_RN, prefix='aud_')
+        self.calculate_gains(self.A, self.B, self.C, tune_R=tune_R, tune_RN=tune_RN, prefix='som_')
 
     def calculate_gains(self, A, B, C, tune_R=1, tune_RN=1, prefix=''):
         # Calculate control and sensor gains

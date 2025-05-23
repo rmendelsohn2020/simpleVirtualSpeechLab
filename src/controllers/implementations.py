@@ -27,6 +27,7 @@ class AbsEstController(ControlSystem, AnalysisMixin, PlotMixin):
             self.arch_title = '2-Sensor System, Delays (Auditory Sensor Delay: ' + str(delta_t_s_aud) + ', Somatosensory Sensor Delay: ' + str(delta_t_s_som) + ', Actuator Delay: ' + str(delta_t_a) + ')'
         for t in range(0,self.time_length-1-(delta_t_s_aud+1+delta_t_s_som+1+delta_t_a)):
             #Brain Implementation
+            #TODO: One function for all sensors
             ##Auditory Sensor
             self.y_aud[t] = self.y[t]+self.v_aud[t]
             self.y_tilde_aud[t]=self.y_aud[t]-self.C*self.x_hat_aud[t]-self.L_del*self.x_s_aud[t]
