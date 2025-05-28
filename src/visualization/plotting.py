@@ -6,7 +6,7 @@ save_figs = True
 save_figs_dir = '/Users/rachelmendelsohn/Desktop/Salk/ArticulatoryFeedback/NewVSLCodebase/Figures/'
 
 class PlotMixin:
-    def plot_all(self, arch, custom_sig=None, custom_text=None):
+    def plot_all(self, arch, custom_sig=None, custom_text=None, fig_save_path=None):
         plt.title(self.arch_title + ' Control System Simulation\n K=' + str(self.K1) + ' Kf=' + str(self.Kf) + ' L=' + str(self.L1))
         plt.xlabel('Time (s)')
         plt.ylabel('Values')
@@ -30,15 +30,15 @@ class PlotMixin:
                      bbox=dict(facecolor='white', alpha=0.5))
         plt.legend()
 
-        if save_figs:
+        if fig_save_path:
             self.K_str = str(self.K1[0]).replace('.', '_')
-            filename = f"{save_figs_dir}{arch}_plot_all_{self.ref_type}_K{self.K_str}.png"
+            filename = f"{fig_save_path}{arch}_plot_all_{self.ref_type}_K{self.K_str}.png"
             plt.savefig(filename)
             print(f"Figure saved to {filename}")
 
         plt.show()
 
-    def plot_transient(self, arch, start_dist=None, custom_text=None):
+    def plot_transient(self, arch, start_dist=None, custom_text=None, fig_save_path=None):
         if custom_text:
             plt.text(0.95, 0.05, custom_text, transform=plt.gca().transAxes,
                      fontsize=12, verticalalignment='bottom', horizontalalignment='right',
@@ -112,15 +112,15 @@ class PlotMixin:
 
         fig.suptitle(self.arch_title + ' Control System Simulation\n K=' + str(self.K1) + ' Kf=' + str(self.Kf) + ' L=' + str(self.L1))
 
-        if save_figs:
+        if fig_save_path:
             self.K_str = str(self.K1[0]).replace('.', '_')
-            filename = f"{save_figs_dir}{arch}_plot_transient_{self.ref_type}_K{self.K_str}.png"
+            filename = f"{fig_save_path}{arch}_plot_transient_{self.ref_type}_K{self.K_str}.png"
             plt.savefig(filename)
             print(f"Figure saved to {filename}")
 
         plt.show()
 
-    def plot_compare_performance(self, arch, custom_text=None):
+    def plot_compare_performance(self, arch, custom_text=None, fig_save_path=None):
         plt.title(self.arch_title + ' Control System Simulation\n K=' + str(self.K1) + ' Kf=' + str(self.Kf) + ' L=' + str(self.L1))
         plt.xlabel('Time (s)')
         plt.ylabel('Values')
@@ -136,9 +136,9 @@ class PlotMixin:
 
         plt.legend()
 
-        if save_figs:
+        if fig_save_path:
             self.K_str = str(self.K1[0]).replace('.', '_')
-            filename = f"{save_figs_dir}{arch}_compare_performance_{self.ref_type}_K{self.K_str}.png"
+            filename = f"{fig_save_path}{arch}_compare_performance_{self.ref_type}_K{self.K_str}.png"
             plt.savefig(filename)
             print(f"Figure saved to {filename}")
 
