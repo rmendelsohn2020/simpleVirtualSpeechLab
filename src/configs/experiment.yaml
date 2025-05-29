@@ -2,6 +2,7 @@
 data:
   trace_type: 'single trial' #'mean' or 'single trial'
   participant_ID: 1
+  trial_ID: 1
 
 simulation:
   duration: 10.8  # Duration of each trial in seconds
@@ -27,5 +28,7 @@ starting_params:
     A: [0.5]
     B: [1]
     C: [1]
-    R_val: 0.5
-    RN_val: 1  
+    K_aud: 0.2655
+    L_aud: 0.2655  
+    K_som: 0.2655
+    L_som: 0.2655  

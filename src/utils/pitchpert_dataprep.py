@@ -5,20 +5,28 @@ import yaml
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 
-def data_prep(filepath, timeseries, save_path, convert_opt='multiplier2cents'):
+def data_prep(filepath, timeseries, save_path, convert_opt='multiplier2cents', pert_onset=None):
     #Data Prep
     incoming_data = np.loadtxt(filepath, delimiter=',', skiprows=1)
 
+    
     if convert_opt == 'multiplier2cents':
         # Extract columns
         time = incoming_data[:, 0]  # First column: time
         distortion_signal_multiplier = incoming_data[:, 1]  # Distortion signal in multiplier
         participant_traces_multiplier = incoming_data[:, 3:21]  # Participant traces in multiplier
 
+        if 0 in distortion_signal_multiplier:
+            print('Warning: Distortion signal contains 0s, adding 1 to all values (convert to multiplier)')
+            distortion_signal_multiplier = distortion_signal_multiplier + 1
+        if 0 in distortion_signal_multiplier or 0 in participant_traces_multiplier:
+            print('Warning: Participant traces contain 0s, unable to convert to cents')
+            return None
+        
         #Convert time to simulation timeseries
         time_conv = np.zeros(len(time))
         for i in range(len(time)):
-            time_conv[i] = 2.06+time[i]
+            time_conv[i] = pert_onset+time[i]
 
         # Convert to cents
         distortion_signal_cents = 1200 * np.log2(distortion_signal_multiplier)
@@ -154,12 +162,15 @@ def plot_calibration_data(filepath, filename):
     plt.show()
 
 def truncate_data(x_data, y_data, t_start, t_end):
+    print('x_data:', len(x_data))
+
     # Truncate the data to the specified time range
     x_data_truncated = x_data[(x_data >= t_start) & (x_data <= t_end)]
     print('pre-truncation x:', x_data.shape)
     print('post-truncation x:', x_data_truncated.shape)
 
     if y_data is not None:
+        print('y_data:', len(y_data))
         y_data_truncated = y_data[(x_data >= t_start) & (x_data <= t_end)]
         # #Plot the truncated data
         # plt.figure(figsize=(12, 6))
@@ -202,3 +213,15 @@ def add_time_column_to_csv(file_path, file_name, save_path, dt=0.005, save_as_ne
 
     if not os.path.exists(save_path):
         os.makedirs(save_path)
+
+def plot_mean_trace(data_path_interp, timeseries, trial_ID):
+    #Calculate and plot mean trace with standard deviation
+    calibration_data = np.loadtxt(data_path_interp, delimiter=',', skiprows=1)
+    mean_trace = np.mean(calibration_data[:, trial_ID+2:], axis=1)
+    print('mean_trace', mean_trace)
+    std_trace = np.std(calibration_data[:, trial_ID+2:], axis=1)
+    print('std_trace', std_trace)
+    plt.plot(timeseries, mean_trace)
+    plt.fill_between(timeseries, mean_trace - std_trace, mean_trace + std_trace, alpha=0.2)
+
+    plt.show()

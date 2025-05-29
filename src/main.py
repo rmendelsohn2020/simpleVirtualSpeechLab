@@ -21,9 +21,9 @@ for ref_item in ref_types:
     for arch_item in archs:
         print('Running simulation with architecture:', arch_item)
         if arch_item == 'x_based':
-            system = AbsEstController(A, B, C, ref_item)    
+            system = AbsEstController(A, B, C, ref_item, K_vals=[0.5, 0.2], L_vals=[0.5, 0.5])    
         elif arch_item == 'q_based':
-            system = RelEstController(A, B, C, ref_item)
+            system = RelEstController(A, B, C, ref_item, K_vals=[0.5, 0.2], L_vals=[0.5, 0.5])
         else:
             raise ValueError('Invalid architecture:', arch_item)
 

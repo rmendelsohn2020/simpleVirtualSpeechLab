@@ -31,8 +31,8 @@ class PlotMixin:
         plt.legend()
 
         if fig_save_path:
-            self.K_str = str(self.K1[0]).replace('.', '_')
-            filename = f"{fig_save_path}{arch}_plot_all_{self.ref_type}_K{self.K_str}.png"
+            self.K_str = str(self.K1).replace('.', '_')
+            filename = f"{fig_save_path}/{arch}_plot_all_{self.ref_type}_K{self.K_str}.png"
             plt.savefig(filename)
             print(f"Figure saved to {filename}")
 
@@ -113,8 +113,8 @@ class PlotMixin:
         fig.suptitle(self.arch_title + ' Control System Simulation\n K=' + str(self.K1) + ' Kf=' + str(self.Kf) + ' L=' + str(self.L1))
 
         if fig_save_path:
-            self.K_str = str(self.K1[0]).replace('.', '_')
-            filename = f"{fig_save_path}{arch}_plot_transient_{self.ref_type}_K{self.K_str}.png"
+            self.K_str = str(self.K1).replace('.', '_')
+            filename = f"{fig_save_path}/{arch}_plot_transient_{self.ref_type}_K{self.K_str}.png"
             plt.savefig(filename)
             print(f"Figure saved to {filename}")
 
@@ -137,8 +137,8 @@ class PlotMixin:
         plt.legend()
 
         if fig_save_path:
-            self.K_str = str(self.K1[0]).replace('.', '_')
-            filename = f"{fig_save_path}{arch}_compare_performance_{self.ref_type}_K{self.K_str}.png"
+            self.K_str = str(self.K1).replace('.', '_')
+            filename = f"{fig_save_path}/{arch}_compare_performance_{self.ref_type}_K{self.K_str}.png"
             plt.savefig(filename)
             print(f"Figure saved to {filename}")
 
@@ -166,5 +166,14 @@ class PlotMixin:
         plt.legend()
         plt.show()
 
+    def plot_data_overlay(self, arch,target_response, time_trunc=None, resp_trunc=None, fig_save_path=None):
+        plt.plot(time_trunc, target_response, label='target', color='red')
+        plt.plot(time_trunc, resp_trunc, label='response', color='blue')
+        plt.legend()
+        plt.show()
+        if fig_save_path:
+            filename = f"{fig_save_path}/{arch}_plot_data_overlay_{self.ref_type}.png"
+            plt.savefig(filename)
+            print(f"Figure saved to {filename}")
 
    

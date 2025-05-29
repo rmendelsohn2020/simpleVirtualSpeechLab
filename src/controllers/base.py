@@ -2,7 +2,7 @@ import numpy as np
 import control as ct
 
 class ControlSystem:
-    def __init__(self, input_A, input_B, input_C, ref_type='sin', dist_custom=None, dist_type=['State'], timeseries=None, tune_R=1, tune_RN=1):
+    def __init__(self, input_A, input_B, input_C, ref_type='sin', dist_custom=None, dist_type=['State'], timeseries=None, K_vals=[None, None], L_vals=[None, None], tune_Rs=[1,1], tune_RNs=[1,1]):
         #NOTE: input arguments can describe certain features of the system matrices,
         #but currently are used to directly as the matrices A, B, C, Q and R
         self.A = input_A
@@ -89,12 +89,18 @@ class ControlSystem:
         elif self.ref_type == 'null':
             self.r = np.zeros((self.time_length,1))
 
-        # Calculate gains for main controller
-        self.calculate_gains(self.A, self.B, self.C)
+        #Set gains for base controller (Not used for 2 sensor channel controllers)
+        self.set_gains(K_vals[0], L_vals[0], '')
+
+        #Set gains for each controller
+        controller_prefixes = ['aud_', 'som_']
+        for K_val, L_val, tune_R, tune_RN, prefix in zip(K_vals, L_vals, tune_Rs, tune_RNs, controller_prefixes):
+            if K_val is not None and L_val is not None:
+                self.set_gains(K_val, L_val, prefix)
+            else:
+                K, L = self.calculate_gains(self.A, self.B, self.C, tune_R=tune_R, tune_RN=tune_RN, prefix=prefix)
+                self.set_gains(K, L, prefix)
         
-        # Calculate gains for auditory and somatosensory controllers
-        self.calculate_gains(self.A, self.B, self.C, tune_R=tune_R, tune_RN=tune_RN, prefix='aud_')
-        self.calculate_gains(self.A, self.B, self.C, tune_R=tune_R, tune_RN=tune_RN, prefix='som_')
 
     def calculate_gains(self, A, B, C, tune_R=1, tune_RN=1, prefix=''):
         # Calculate control and sensor gains
@@ -111,6 +117,9 @@ class ControlSystem:
 
         L, P, E = ct.dlqe(A, G, C, QN, RN)
 
+        return K, L
+        
+    def set_gains(self, K, L, prefix=''):
         # Set gains with optional prefix for different controllers
         setattr(self, prefix + 'K1', K)
         setattr(self, prefix + 'K2', K) 

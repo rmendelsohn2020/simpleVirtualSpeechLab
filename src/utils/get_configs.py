@@ -15,7 +15,10 @@ def get_paths():
 
     if config_expt['data']['trace_type'] == 'mean':
         if config_expt['perturbation']['type'] == 'auditory':
-            data_path = config_paths['paths']['calibration_data']['mean_aud_filename']
+            data_save_path = config_paths['paths']['data_save_path'] + '/AudPert/'
+            data_dir = config_paths['paths']['calibration_data']['directory']
+            filename = config_paths['paths']['calibration_data']['mean_aud_filename']
+            data_path = os.path.join(data_dir, filename)
         else:
             print('Mean trace data only available for auditory perturbations')
 
@@ -66,6 +69,10 @@ def get_params():
     # Define simulation parameters
     trace_type = config_expt['data']['trace_type']
     participant_ID = config_expt['data']['participant_ID']
+    if config_expt['data']['trace_type'] == 'mean':
+        trial_ID = participant_ID
+    else:
+        trial_ID = config_expt['data']['trial_ID']  
 
     duration = config_expt['simulation']['duration']
     dt = config_expt['simulation']['sec_per_step']
@@ -85,8 +92,13 @@ def get_params():
     A_init = np.array(config_expt['starting_params']['system']['A'])
     B_init = np.array(config_expt['starting_params']['system']['B'])
     C_init = np.array(config_expt['starting_params']['system']['C'])
-    R_init = config_expt['starting_params']['system']['R_val']
-    RN_init = config_expt['starting_params']['system']['RN_val']
+    K_aud_init = config_expt['starting_params']['system']['K_aud']
+    L_aud_init = config_expt['starting_params']['system']['L_aud']
+    K_som_init = config_expt['starting_params']['system']['K_som']
+    L_som_init = config_expt['starting_params']['system']['L_som']
 
-    return type('ParamsObject', (), {'trace_type': trace_type, 'participant_ID': participant_ID, 'duration': duration, 'dt': dt, 'ref_type': ref_type, 'pert_type': pert_type, 'pert_mag': pert_mag, 'pert_onset': pert_onset, 'pert_duration': pert_duration, 'ramp_up_duration': ramp_up_duration, 'ramp_down_duration': ramp_down_duration, 'actuator_delay': actuator_delay, 'sensor_delay_aud': sensor_delay_aud, 'sensor_delay_som': sensor_delay_som, 'A_init': A_init, 'B_init': B_init, 'C_init': C_init, 'R_init': R_init, 'RN_init': RN_init})
+    # tune_Rs = config_expt['starting_params']['system']['tune_Rs']
+    # tune_RNs = config_expt['starting_params']['system']['tune_RNs']
+
+    return type('ParamsObject', (), {'trace_type': trace_type, 'participant_ID': participant_ID, 'trial_ID': trial_ID, 'duration': duration, 'dt': dt, 'ref_type': ref_type, 'pert_type': pert_type, 'pert_mag': pert_mag, 'pert_onset': pert_onset, 'pert_duration': pert_duration, 'ramp_up_duration': ramp_up_duration, 'ramp_down_duration': ramp_down_duration, 'actuator_delay': actuator_delay, 'sensor_delay_aud': sensor_delay_aud, 'sensor_delay_som': sensor_delay_som, 'A_init': A_init, 'B_init': B_init, 'C_init': C_init, 'K_aud_init': K_aud_init, 'L_aud_init': L_aud_init, 'K_som_init': K_som_init, 'L_som_init': L_som_init})
 

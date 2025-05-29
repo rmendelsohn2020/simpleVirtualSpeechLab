@@ -30,17 +30,17 @@ class AbsEstController(ControlSystem, AnalysisMixin, PlotMixin):
             #TODO: One function for all sensors
             ##Auditory Sensor
             self.y_aud[t] = self.y[t]+self.v_aud[t]
-            self.y_tilde_aud[t]=self.y_aud[t]-self.C*self.x_hat_aud[t]-self.L_del*self.x_s_aud[t]
+            self.y_tilde_aud[t]=self.y_aud[t]-self.C*self.x_hat_aud[t]-self.aud_L_del*self.x_s_aud[t]
             self.x_s_aud[t+delta_t_s_aud]=self.y_tilde_aud[t]
-            self.x_hat_aud[t+delta_t_s_aud+1] = (self.L1*self.x_s_aud[t+delta_t_s_aud])+(self.A*self.x_hat_aud[t+delta_t_s_aud])+(self.B*self.x_a_aud[t+delta_t_s_aud])+(self.B*self.Kf)*self.r[t+delta_t_s_aud]
-            self.x_a_aud[t+delta_t_s_aud+1+delta_t_a]=-self.K2*self.x_hat_aud[t+delta_t_s_aud+1]-self.K_del*self.x_a_aud[t+delta_t_s_aud+1]+self.Kf*self.r[t+delta_t_s_aud+1]
+            self.x_hat_aud[t+delta_t_s_aud+1] = (self.aud_L1*self.x_s_aud[t+delta_t_s_aud])+(self.A*self.x_hat_aud[t+delta_t_s_aud])+(self.B*self.x_a_aud[t+delta_t_s_aud])+(self.B*self.aud_Kf)*self.r[t+delta_t_s_aud]
+            self.x_a_aud[t+delta_t_s_aud+1+delta_t_a]=-self.aud_K2*self.x_hat_aud[t+delta_t_s_aud+1]-self.aud_K_del*self.x_a_aud[t+delta_t_s_aud+1]+self.aud_Kf*self.r[t+delta_t_s_aud+1]
             
             ##Somatosensory Sensor
             self.y_som[t] = self.y[t]+self.v_som[t]
-            self.y_tilde_som[t]=self.y_som[t]-self.C*self.x_hat_som[t]-self.L_del*self.x_s_som[t]
+            self.y_tilde_som[t]=self.y_som[t]-self.C*self.x_hat_som[t]-self.som_L_del*self.x_s_som[t]
             self.x_s_som[t+delta_t_s_som]=self.y_tilde_som[t]
-            self.x_hat_som[t+delta_t_s_som+1] = (self.L1*self.x_s_som[t+delta_t_s_som])+(self.A*self.x_hat_som[t+delta_t_s_som])+(self.B*self.x_a_som[t+delta_t_s_som])+(self.B*self.Kf)*self.r[t+delta_t_s_som]
-            self.x_a_som[t+delta_t_s_som+1+delta_t_a]=-self.K2*self.x_hat_som[t+delta_t_s_som+1]-self.K_del*self.x_a_som[t+delta_t_s_som+1]+self.Kf*self.r[t+delta_t_s_som+1]
+            self.x_hat_som[t+delta_t_s_som+1] = (self.som_L1*self.x_s_som[t+delta_t_s_som])+(self.A*self.x_hat_som[t+delta_t_s_som])+(self.B*self.x_a_som[t+delta_t_s_som])+(self.B*self.som_Kf)*self.r[t+delta_t_s_som]
+            self.x_a_som[t+delta_t_s_som+1+delta_t_a]=-self.som_K2*self.x_hat_som[t+delta_t_s_som+1]-self.som_K_del*self.x_a_som[t+delta_t_s_som+1]+self.som_Kf*self.r[t+delta_t_s_som+1]
 
             self.u[t]=self.x_a_aud[t]+self.x_a_som[t]
 
@@ -76,17 +76,17 @@ class RelEstController(ControlSystem, AnalysisMixin, PlotMixin):
             #Brain Implementation
             ##Auditory Sensor
             self.y_aud[t] = self.y[t]+self.v_aud[t]
-            self.y_tilde_aud[t]=(self.y_aud[t])-(self.C*self.q_hat_aud[t])-(self.C*self.r[t])-(self.L_del*self.x_s_aud[t])
+            self.y_tilde_aud[t]=(self.y_aud[t])-(self.C*self.q_hat_aud[t])-(self.C*self.r[t])-(self.aud_L_del*self.x_s_aud[t])
             self.x_s_aud[t+delta_t_s_aud]=self.y_tilde_aud[t]
-            self.q_hat_aud[t+delta_t_s_aud+1]=self.L1*self.x_s_aud[t+delta_t_s_aud]+self.A*self.q_hat_aud[t+delta_t_s_aud]+self.A*self.r[t+delta_t_s_aud]+self.B*self.x_a_aud[t+delta_t_s_aud]+self.B*self.Kf*self.r[t+delta_t_s_aud]-self.r[t+delta_t_s_aud+1]
-            self.x_a_aud[t+delta_t_s_aud+1+delta_t_a]=(-self.K2*self.q_hat_aud[t+delta_t_s_aud+1])-self.K_del*self.x_a_aud[t+delta_t_s_aud+1]+((self.Kf-self.K4)*self.r[t+delta_t_s_aud+1])
+            self.q_hat_aud[t+delta_t_s_aud+1]=self.aud_L1*self.x_s_aud[t+delta_t_s_aud]+self.A*self.q_hat_aud[t+delta_t_s_aud]+self.A*self.r[t+delta_t_s_aud]+self.B*self.x_a_aud[t+delta_t_s_aud]+self.B*self.aud_Kf*self.r[t+delta_t_s_aud]-self.r[t+delta_t_s_aud+1]
+            self.x_a_aud[t+delta_t_s_aud+1+delta_t_a]=(-self.aud_K2*self.q_hat_aud[t+delta_t_s_aud+1])-self.aud_K_del*self.x_a_aud[t+delta_t_s_aud+1]+((self.aud_Kf-self.aud_K4)*self.r[t+delta_t_s_aud+1])
             
             ##Somatosensory Sensor
             self.y_som[t] = self.y[t]+self.v_som[t]
-            self.y_tilde_som[t]=(self.y_som[t])-(self.C*self.q_hat_som[t])-(self.C*self.r[t])-(self.L_del*self.x_s_som[t])
+            self.y_tilde_som[t]=(self.y_som[t])-(self.C*self.q_hat_som[t])-(self.C*self.r[t])-(self.som_L_del*self.x_s_som[t])
             self.x_s_som[t+delta_t_s_som]=self.y_tilde_som[t]
-            self.q_hat_som[t+delta_t_s_som+1]=self.L1*self.x_s_som[t+delta_t_s_som]+self.A*self.q_hat_som[t+delta_t_s_som]+self.A*self.r[t+delta_t_s_som]+self.B*self.x_a_som[t+delta_t_s_som]+self.B*self.Kf*self.r[t+delta_t_s_som]-self.r[t+delta_t_s_som+1]
-            self.x_a_som[t+delta_t_s_som+1+delta_t_a]=(-self.K2*self.q_hat_som[t+delta_t_s_som+1])-self.K_del*self.x_a_som[t+delta_t_s_som+1]+((self.Kf-self.K4)*self.r[t+delta_t_s_som+1])
+            self.q_hat_som[t+delta_t_s_som+1]=self.som_L1*self.x_s_som[t+delta_t_s_som]+self.A*self.q_hat_som[t+delta_t_s_som]+self.A*self.r[t+delta_t_s_som]+self.B*self.x_a_som[t+delta_t_s_som]+self.B*self.som_Kf*self.r[t+delta_t_s_som]-self.r[t+delta_t_s_som+1]
+            self.x_a_som[t+delta_t_s_som+1+delta_t_a]=(-self.som_K2*self.q_hat_som[t+delta_t_s_som+1])-self.som_K_del*self.x_a_som[t+delta_t_s_som+1]+((self.som_Kf-self.som_K4)*self.r[t+delta_t_s_som+1])
 
             self.u[t]=self.x_a_aud[t]+self.x_a_som[t]
 
