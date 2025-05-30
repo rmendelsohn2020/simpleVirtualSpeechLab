@@ -1,6 +1,6 @@
 # Perturbation Experiment Parameters
 data:
-  trace_type: 'single trial' #'mean' or 'single trial'
+  trace_type: 'mean' #'mean' or 'single trial'
   participant_ID: 1
   trial_ID: 1
 
