@@ -12,6 +12,7 @@ def get_paths():
 
     # Define data paths and save paths
     fig_save_path = config_paths['paths']['fig_save_path']
+    
 
     if config_expt['data']['trace_type'] == 'mean':
         if config_expt['perturbation']['type'] == 'auditory':
@@ -49,6 +50,11 @@ def get_paths():
 
     else:
         raise ValueError(f"Invalid trace type: {config_expt['data']['trace_type']}")
+    
+    if config_paths['paths']['interp_folder'] in data_path:
+        interpolated = True
+    else:
+        interpolated = False
 
     if not os.path.exists(data_save_path):
         os.makedirs(data_save_path)
@@ -57,7 +63,7 @@ def get_paths():
         unprocessed_data_path = config_paths['paths']['calibration_data']['unprocessed_indiv_files'][pert_type]['path']
         add_time_column_to_csv(unprocessed_data_path, filename, data_path)
 
-    return type('PathObject', (), {'data_save_path': data_save_path, 'data_path': data_path, 'fig_save_path': fig_save_path})
+    return type('PathObject', (), {'data_save_path': data_save_path, 'data_path': data_path, 'fig_save_path': fig_save_path, 'interpolated': interpolated})
 
 def get_params():
      # Initialize the config loader

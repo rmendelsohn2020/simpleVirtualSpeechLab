@@ -5,6 +5,7 @@ from visualization.plotting import PlotMixin
 
 class RampedStep1D(PlotMixin):
 	def __init__(self, duration, dt=0.01, tstart_step=None, t_step_peak=0, amp_step=1, dist_duration=1.5, ramp_up_duration=0.5, peak_duration=None, ramp_down_duration=0.5, sig_label='Ramped step signal', **kwargs):
+		#TODO: Add documentation with expected units for each parameter
 		# step_signal = vsl.signals.RampedStep1D(exp_trial.duration, dt=sec_per_step, t_step_peak=exp_trial.step_onset,amp_step=exp_trial.step,
 		#                                 dist_duration=exp_trial.step_duration, ramp_up_duration=exp_trial.ramp_up_duration, 
 		#                                 ramp_down_duration=exp_trial.ramp_down_duration,
@@ -17,9 +18,6 @@ class RampedStep1D(PlotMixin):
 		self.ramp_down_duration = ramp_down_duration
 
 
-		if peak_duration is None:
-            # Calculate peak_duration by subtracting ramp_up_duration and ramp_down_duration from dist_duration
-			peak_duration = dist_duration - ramp_up_duration - ramp_down_duration
 
 
 		T_sim = np.arange(0, duration, dt)
@@ -30,11 +28,23 @@ class RampedStep1D(PlotMixin):
 			self.tstart_step = t_step_peak - ramp_up_duration
 			print('t_step_peak (specified):', self.t_step_peak)
 			print('tstart_step:', self.tstart_step)
+			
 		else:
+			if ramp_up_duration is None:
+				ramp_up_duration = t_step_peak - tstart_step
+			elif t_step_peak is None:
+				t_step_peak = tstart_step + ramp_up_duration
+			else:
+				print('tstart_step, t_step_peak, and ramp_up_duration are all specified. Using tstart_step and ramp_up_duration to calculate t_step_peak')
 			self.t_step_peak = tstart_step + ramp_up_duration
 			self.tstart_step = tstart_step
 			print('tstart_step (specified):', self.tstart_step)
 			print('t_step_peak:', self.t_step_peak)
+
+		if peak_duration is None:
+			# Calculate peak_duration by subtracting ramp_up_duration and ramp_down_duration from dist_duration
+			peak_duration = dist_duration - ramp_up_duration - ramp_down_duration
+			print('peak_duration:', peak_duration)
 
 		t_step_ind = np.searchsorted(T_sim, self.t_step_peak)
 		self.t_step_ind = t_step_ind
@@ -50,11 +60,12 @@ class RampedStep1D(PlotMixin):
 
 		# Apply linear ramp-up
 		if start_ramp_up < end_ramp_up:
-			ramp_up = np.linspace(0, amp_step, end_ramp_up - start_ramp_up)
+			# Use the sign of amp_step to determine ramp direction
+			ramp_up = np.linspace(0, self.amp_step, end_ramp_up - start_ramp_up)
 			w[start_ramp_up:end_ramp_up] = ramp_up
 
 		# Set peak amplitude and maintain it for the peak duration
-		w[start_peak:end_peak] = amp_step
+		w[start_peak:end_peak] = self.amp_step
 
 		# Calculate indices for ramp-down
 		start_ramp_down = end_peak
@@ -62,9 +73,10 @@ class RampedStep1D(PlotMixin):
 
 		# Apply linear ramp-down
 		if start_ramp_down < end_ramp_down:
-			ramp_down = np.linspace(amp_step, 0, end_ramp_down - start_ramp_down)
+			# Use the sign of amp_step to determine ramp direction
+			ramp_down = np.linspace(self.amp_step, 0, end_ramp_down - start_ramp_down)
 			w[start_ramp_down:end_ramp_down] = ramp_down
-        
+
 		self.signal = w
 		self.timeseries = T_sim
 		self.start_ramp_up = start_ramp_up

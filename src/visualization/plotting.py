@@ -166,9 +166,14 @@ class PlotMixin:
         plt.legend()
         plt.show()
 
-    def plot_data_overlay(self, arch,target_response, time_trunc=None, resp_trunc=None, fig_save_path=None):
+    def plot_data_overlay(self, arch,target_response, pitch_pert_data, time_trunc=None, resp_trunc=None, pitch_pert_truncated=None, fig_save_path=None):
         plt.plot(time_trunc, target_response, label='target', color='red')
         plt.plot(time_trunc, resp_trunc, label='response', color='blue')
+
+        #plot the pitch pert
+        plt.plot(time_trunc, pitch_pert_truncated, label='pitch pert, auditory', color='lightblue')
+        plt.plot(time_trunc, pitch_pert_data, label='pitch pert data', color='pink')
+     
         plt.legend()
         plt.show()
         if fig_save_path:

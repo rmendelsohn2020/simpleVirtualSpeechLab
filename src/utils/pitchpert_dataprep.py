@@ -166,11 +166,11 @@ def truncate_data(x_data, y_data, t_start, t_end):
 
     # Truncate the data to the specified time range
     x_data_truncated = x_data[(x_data >= t_start) & (x_data <= t_end)]
-    print('pre-truncation x:', x_data.shape)
-    print('post-truncation x:', x_data_truncated.shape)
+    # print('pre-truncation x:', x_data.shape)
+    # print('post-truncation x:', x_data_truncated.shape)
 
     if y_data is not None:
-        print('y_data:', len(y_data))
+        # print('y_data:', len(y_data))
         y_data_truncated = y_data[(x_data >= t_start) & (x_data <= t_end)]
         # #Plot the truncated data
         # plt.figure(figsize=(12, 6))
@@ -180,7 +180,7 @@ def truncate_data(x_data, y_data, t_start, t_end):
         # plt.title('Truncated Data')
     else:
         y_data_truncated = None
-        print('truncated timeseries:', x_data_truncated)
+        # print('truncated timeseries:', x_data_truncated)
     
 
     return x_data_truncated, y_data_truncated
