@@ -2,12 +2,20 @@ import numpy as np
 import control as ct
 
 class ControlSystem:
-    def __init__(self, input_A, input_B, input_C, ref_type='sin', dist_custom=None, dist_type=['State'], timeseries=None, K_vals=[None, None], L_vals=[None, None], tune_Rs=[1,1], tune_RNs=[1,1]):
+    def __init__(self, input_A, input_B, input_C, secondinput_C=None, ref_type='sin', dist_custom=None, dist_type=['GenSens'], timeseries=None, K_vals=[None, None], L_vals=[None, None], tune_Rs=[1,1], tune_RNs=[1,1]):
         #NOTE: input arguments can describe certain features of the system matrices,
         #but currently are used to directly as the matrices A, B, C, Q and R
+        print('dist_type: ', dist_type)
         self.A = input_A
         self.B = input_B
-        self.C = input_C
+        if secondinput_C is not None:
+            self.C_aud = input_C
+            self.C_som = secondinput_C
+            self.C = input_C
+        else:
+            self.C = input_C
+            self.C_aud = input_C
+            self.C_som = input_C
 
         ###Simulation parameters
         if timeseries is not None:
@@ -75,7 +83,7 @@ class ControlSystem:
             self.v_aud = dist_sig
         if 'Somatosensory' in dist_type:
             self.v_som = dist_sig
-        if 'State' in dist_type:
+        if 'GenSens' in dist_type:
             self.v = dist_sig
 
 
@@ -123,9 +131,12 @@ class ControlSystem:
         # Set gains with optional prefix for different controllers
         setattr(self, prefix + 'K1', K)
         setattr(self, prefix + 'K2', K) 
-        setattr(self, prefix + 'K3', K)
-        setattr(self, prefix + 'K4', K)
-        setattr(self, prefix + 'Kf', K)
+
+        Kf=K
+        setattr(self, prefix + 'Kf', Kf)
+        setattr(self, prefix + 'Kf1', Kf)
+        setattr(self, prefix + 'Kf2', Kf)
+
         setattr(self, prefix + 'L1', L)
 
         # Internal feedback gains for time delay compensation

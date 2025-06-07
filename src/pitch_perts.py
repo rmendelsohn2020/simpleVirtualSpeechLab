@@ -87,7 +87,8 @@ def objective_function(params, params_obj, target_response, pert_signal, T_sim, 
     # Unpack parameters
     A = np.array([params[0]])
     B = np.array([params[1]])
-    C = np.array([params[2]])
+    C_aud = np.array([params[2]])
+    C_som = np.array([params[3]])
     K_aud = params[3]
     L_aud = params[4]
     K_som = params[5]
@@ -97,9 +98,9 @@ def objective_function(params, params_obj, target_response, pert_signal, T_sim, 
     actuator_delay = params[9]
     
     # Create system with current parameters
-    system = AbsEstController(
-        A, B, C,
-        params_obj.ref_type,
+    system = RelEstController(
+        A, B, C_aud, secondinput_C=C_som,
+        ref_type=params_obj.ref_type,
         dist_custom=pert_signal.signal,
         dist_type=['Auditory'],
         timeseries=T_sim,
@@ -109,9 +110,9 @@ def objective_function(params, params_obj, target_response, pert_signal, T_sim, 
     
     # Run simulation
     system.simulate_with_2sensors(
-        delta_t_s_aud=int(sensor_delay_aud/params_obj.dt),
-        delta_t_s_som=int(sensor_delay_som/params_obj.dt),
-        delta_t_a=int(actuator_delay/params_obj.dt)
+        delta_t_s_aud=int(sensor_delay_aud),
+        delta_t_s_som=int(sensor_delay_som),
+        delta_t_a=int(actuator_delay)
     )
     
     # Calculate MSE between simulation and calibration data
@@ -132,7 +133,7 @@ def callback_function(xk, *args):
     callback_function.mse_history.append(current_mse)
     return False  # Return False to continue optimization
 
-def calibrate_params(params_obj, target_response, max_iterations=100, learning_rate=0.01, tolerance=1e-6):
+def calibrate_params(params_obj, target_response, max_iterations=200, learning_rate=0.01, tolerance=1e-6):
     """
     Calibrate system parameters to match calibration data using scipy.optimize.minimize.
     
@@ -150,7 +151,8 @@ def calibrate_params(params_obj, target_response, max_iterations=100, learning_r
     bounds = [
         (1e-6, 1.1),      # A
         (1e-6, 5.0),      # B
-        (1e-6, 5.0),      # C
+        (1e-6, 5.0),      # C_aud
+        (1e-6, 5.0),      # C_som
         (1e-6, 1.0),      # K_aud
         (1e-6, 1.0),      # L_aud
         (1e-6, 1.0),      # K_som
@@ -164,7 +166,8 @@ def calibrate_params(params_obj, target_response, max_iterations=100, learning_r
     x0 = [
         params_obj.A_init[0],
         params_obj.B_init[0],
-        params_obj.C_init[0],
+        params_obj.C_aud_init[0],
+        params_obj.C_som_init[0],
         params_obj.K_aud_init,
         params_obj.L_aud_init,
         params_obj.K_som_init,
@@ -177,13 +180,12 @@ def calibrate_params(params_obj, target_response, max_iterations=100, learning_r
     # Initialize callback function's MSE history
     callback_function.mse_history = []
     
-    truncate_start_temp = truncate_start
-    truncate_end_temp = truncate_end
+
     # Run optimization
     result = minimize(
         objective_function,
         x0,
-        args=(params_obj, target_response, pert_signal, T_sim, truncate_start_temp, truncate_end_temp),
+        args=(params_obj, target_response, pert_signal, T_sim, truncate_start, truncate_end),
         method='trust-constr',
         bounds=bounds,
         options={'maxiter': max_iterations},
@@ -193,14 +195,15 @@ def calibrate_params(params_obj, target_response, max_iterations=100, learning_r
     # Update parameters object with optimized values
     params_obj.A_init = np.array([result.x[0]])
     params_obj.B_init = np.array([result.x[1]])
-    params_obj.C_init = np.array([result.x[2]])
-    params_obj.K_aud_init = result.x[3]
-    params_obj.L_aud_init = result.x[4]
-    params_obj.K_som_init = result.x[5]
-    params_obj.L_som_init = result.x[6]
-    params_obj.sensor_delay_aud = result.x[7]
-    params_obj.sensor_delay_som = result.x[8]
-    params_obj.actuator_delay = result.x[9]
+    params_obj.C_aud_init = np.array([result.x[2]])
+    params_obj.C_som_init = np.array([result.x[3]])
+    params_obj.K_aud_init = result.x[4]
+    params_obj.L_aud_init = result.x[5]
+    params_obj.K_som_init = result.x[6]
+    params_obj.L_som_init = result.x[7]
+    params_obj.sensor_delay_aud = result.x[8]
+    params_obj.sensor_delay_som = result.x[9]
+    params_obj.actuator_delay = result.x[10]
     
     # Get MSE history from callback
     mse_history = callback_function.mse_history
@@ -243,14 +246,15 @@ cal_params, mse_history = calibrate_params(params_obj, target_response)
 
 print('mse_history', mse_history)
 
-sensor_delay_aud = int(cal_params.sensor_delay_aud/params_obj.dt)
-sensor_delay_som = int(cal_params.sensor_delay_som/params_obj.dt)
-actuator_delay = int(cal_params.actuator_delay/params_obj.dt)
+sensor_delay_aud = int(cal_params.sensor_delay_aud)
+sensor_delay_som = int(cal_params.sensor_delay_som)
+actuator_delay = int(cal_params.actuator_delay)
 
 print('Optimized parameters:')
 print(f'A: {cal_params.A_init}')
 print(f'B: {cal_params.B_init}')
-print(f'C: {cal_params.C_init}')
+print(f'C_aud: {cal_params.C_aud_init}')
+print(f'C_som: {cal_params.C_som_init}')
 print(f'K_aud: {cal_params.K_aud_init}')
 print(f'L_aud: {cal_params.L_aud_init}')
 print(f'K_som: {cal_params.K_som_init}')
@@ -260,7 +264,7 @@ print(f'sensor_delay_som: {sensor_delay_som}')
 print(f'actuator_delay: {actuator_delay}')
 
 #Run simulation with calibrated params
-system = AbsEstController(cal_params.A_init, cal_params.B_init, cal_params.C_init, params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory','Somatosensory'], timeseries=T_sim, K_vals=[cal_params.K_aud_init, cal_params.K_som_init], L_vals=[cal_params.L_aud_init, cal_params.L_som_init])    
+system = RelEstController(cal_params.A_init, cal_params.B_init, cal_params.C_aud_init, secondinput_C=cal_params.C_som_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory','Somatosensory'], timeseries=T_sim, K_vals=[cal_params.K_aud_init, cal_params.K_som_init], L_vals=[cal_params.L_aud_init, cal_params.L_som_init])    
 system.simulate_with_2sensors(delta_t_s_aud=sensor_delay_aud, delta_t_s_som=sensor_delay_som, delta_t_a=actuator_delay)
 #system.plot_transient('abs2sens', start_dist=pert_signal.start_ramp_up) 
 system.plot_all('abs2sens', custom_sig='dist', fig_save_path=fig_save_path)

@@ -175,10 +175,10 @@ class PlotMixin:
         plt.plot(time_trunc, pitch_pert_data, label='pitch pert data', color='pink')
      
         plt.legend()
-        plt.show()
+        
         if fig_save_path:
             filename = f"{fig_save_path}/{arch}_plot_data_overlay_{self.ref_type}.png"
             plt.savefig(filename)
             print(f"Figure saved to {filename}")
-
+        plt.show()
    

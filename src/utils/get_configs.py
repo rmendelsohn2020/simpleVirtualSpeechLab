@@ -97,7 +97,8 @@ def get_params():
 
     A_init = np.array(config_expt['starting_params']['system']['A'])
     B_init = np.array(config_expt['starting_params']['system']['B'])
-    C_init = np.array(config_expt['starting_params']['system']['C'])
+    C_aud_init = np.array(config_expt['starting_params']['system']['C_aud'])
+    C_som_init = np.array(config_expt['starting_params']['system']['C_som'])
     K_aud_init = config_expt['starting_params']['system']['K_aud']
     L_aud_init = config_expt['starting_params']['system']['L_aud']
     K_som_init = config_expt['starting_params']['system']['K_som']
@@ -106,5 +107,5 @@ def get_params():
     # tune_Rs = config_expt['starting_params']['system']['tune_Rs']
     # tune_RNs = config_expt['starting_params']['system']['tune_RNs']
 
-    return type('ParamsObject', (), {'trace_type': trace_type, 'participant_ID': participant_ID, 'trial_ID': trial_ID, 'duration': duration, 'dt': dt, 'ref_type': ref_type, 'pert_type': pert_type, 'pert_mag': pert_mag, 'pert_onset': pert_onset, 'pert_duration': pert_duration, 'ramp_up_duration': ramp_up_duration, 'ramp_down_duration': ramp_down_duration, 'actuator_delay': actuator_delay, 'sensor_delay_aud': sensor_delay_aud, 'sensor_delay_som': sensor_delay_som, 'A_init': A_init, 'B_init': B_init, 'C_init': C_init, 'K_aud_init': K_aud_init, 'L_aud_init': L_aud_init, 'K_som_init': K_som_init, 'L_som_init': L_som_init})
+    return type('ParamsObject', (), {'trace_type': trace_type, 'participant_ID': participant_ID, 'trial_ID': trial_ID, 'duration': duration, 'dt': dt, 'ref_type': ref_type, 'pert_type': pert_type, 'pert_mag': pert_mag, 'pert_onset': pert_onset, 'pert_duration': pert_duration, 'ramp_up_duration': ramp_up_duration, 'ramp_down_duration': ramp_down_duration, 'actuator_delay': actuator_delay, 'sensor_delay_aud': sensor_delay_aud, 'sensor_delay_som': sensor_delay_som, 'A_init': A_init, 'B_init': B_init, 'C_aud_init': C_aud_init, 'C_som_init': C_som_init, 'K_aud_init': K_aud_init, 'L_aud_init': L_aud_init, 'K_som_init': K_som_init, 'L_som_init': L_som_init})
 

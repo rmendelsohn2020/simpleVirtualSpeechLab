@@ -1,7 +1,7 @@
 # Perturbation Experiment Parameters
 data:
   trace_type: 'mean' #'mean' or 'single trial'
-  participant_ID: 1
+  participant_ID: 2
   trial_ID: 1
 
 simulation:
@@ -20,14 +20,15 @@ perturbation:
 
 starting_params:
   delays:
-    actuator: 0.01  # in seconds
+    actuator: 2
     sensor:
-      auditory: 0.1  # in seconds
-      somatosensory: 0.1  # in seconds
+      auditory: 3  
+      somatosensory: 3
   system:
     A: [0.5]
     B: [1]
-    C: [1]
+    C_aud: [1]
+    C_som: [1]
     K_aud: 0.2655
     L_aud: 0.2655  
     K_som: 0.2655
