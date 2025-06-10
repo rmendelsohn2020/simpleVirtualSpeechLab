@@ -86,10 +86,12 @@ class PlotMixin:
             # Plot each pair of signals
             for i, (data1, data2, label1, label2) in enumerate(signal_pairs):
                 axs[i, 0].plot(self.timeseries[custom_time], data1[custom_time], label=label1)
+                #axs[i, 0].plot(self.timeseries[custom_time], self.r[custom_time], label='reference')
                 axs[i, 0].set_ylabel(label1)
                 axs[i, 0].legend(loc='upper right')
                 
                 axs[i, 1].plot(self.timeseries[custom_time], data2[custom_time], label=label2)
+                #axs[i, 1].plot(self.timeseries[custom_time], self.r[custom_time], label='reference')
                 axs[i, 1].set_ylabel(label2)
                 axs[i, 1].legend(loc='upper right')
                 

@@ -61,7 +61,7 @@ class ControlSystem:
         #self.w = np.zeros((self.time_length,1))
         # State noise
         self.w = np.random.normal(0, 0.01, (self.time_length, 1))  # Gaussian noise with mean 0 and std 0.01
-
+        self.w = np.zeros_like(self.w)
         #Measurement noise
 
         self.v = np.zeros((self.time_length,1)) # measurement noise

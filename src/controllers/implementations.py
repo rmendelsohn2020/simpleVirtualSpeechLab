@@ -64,10 +64,9 @@ class RelEstController(ControlSystem, AnalysisMixin, PlotMixin):
         for t in range(0,self.time_length-1-(self.delta_t_s+1+self.delta_t_a)):
             #Brain Implementation
             self.process_sensor_channel(t, self.delta_t_s, self.delta_t_a, channel=None)
-            self.u[t]=self.x_a[t]
-            #World
-            self.x[t+1]=self.A*self.x[t]+self.B*self.u[t]+self.w[t]
-            self.y[t+1] = self.C*self.x[t+1]+self.v[t+1]
+
+            #World/Non-sensor specific processing
+            self.process_global(t, channels=None)
 
     def simulate_with_2sensors(self, delta_t_s_aud=1, delta_t_s_som=1, delta_t_a=1):
         # Initialize sensor delay attributes
@@ -87,10 +86,10 @@ class RelEstController(ControlSystem, AnalysisMixin, PlotMixin):
             for channel in ["aud", "som"]:
                 delta_t_s_ch = getattr(self, f"delta_t_s_{channel}")
                 self.process_sensor_channel(t, delta_t_s_ch, self.delta_t_a, channel)
-            self.u[t]=self.x_a_aud[t]+self.x_a_som[t]
-            #World
-            self.x[t+1]=self.A*self.x[t]+self.B*self.u[t]+self.w[t]
-            self.y[t+1]=self.C*self.x[t+1]+self.v[t+1]
+             
+            #World/Non-sensor specific processing
+            channels = ["aud", "som"]
+            self.process_global(t, channels)
 
 
     def process_sensor_channel(self, t, delta_t_s, delta_t_a, channel):
@@ -111,8 +110,6 @@ class RelEstController(ControlSystem, AnalysisMixin, PlotMixin):
 
         # Get parameters
         C = self.C_aud if channel == "aud" else self.C_som if channel == "som" else self.C
-        print('C: ', C)
-        print('C type:', type(C))
         L1 = getattr(self, f"{channel_prefix}L1")
         L_del = getattr(self, f"{channel_prefix}L_del")
         Kf1 = getattr(self, f"{channel_prefix}Kf1")
@@ -120,6 +117,7 @@ class RelEstController(ControlSystem, AnalysisMixin, PlotMixin):
         K1 = getattr(self, f"{channel_prefix}K1")
         K2 = getattr(self, f"{channel_prefix}K2")
         K_del = getattr(self, f"{channel_prefix}K_del")
+
 
         # Compute y_tilde
         y_tilde_val = (y[t]) - (C * q_hat[t]) - (C * self.r[t]) - (L_del * x_s[t])
@@ -148,5 +146,25 @@ class RelEstController(ControlSystem, AnalysisMixin, PlotMixin):
         time_index = t + delta_t_s + 1 + self.delta_t_a
         setattr(self, f"x_a{channel_suffix}", set_array_value(x_a, t + delta_t_s + 1 + delta_t_a, x_a_val))
     
-    #TODO: Move to utils
+    def process_global(self, t, channels):
+        #Sum control signals from all channels
+        self.u[t]=self.x_a_aud[t]+self.x_a_som[t]
+
+        for channel in channels:
+            #Update y for each channel
+            if channel == "aud" or channel == "som":
+                channel_prefix = f"{channel}_"
+                channel_suffix = f"_{channel}"
+            else:
+                channel_prefix = ""
+                channel_suffix = ""
+            
+            v_channel = getattr(self, f"v{channel_suffix}")
+            y_channel = getattr(self, f"y{channel_suffix}")
+            C_channel = getattr(self, f"C{channel_suffix}")
+            y_val = C_channel*self.x[t+1]+v_channel[t+1]
+            setattr(self, f"y{channel_suffix}", set_array_value(y_channel, t+1, y_val))
+
+        #Update x
+        self.x[t+1]=self.A*self.x[t]+self.B*self.u[t]+self.w[t]
     

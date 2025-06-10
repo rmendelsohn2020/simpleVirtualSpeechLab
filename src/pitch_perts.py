@@ -263,6 +263,34 @@ print(f'sensor_delay_aud: {sensor_delay_aud}')
 print(f'sensor_delay_som: {sensor_delay_som}')
 print(f'actuator_delay: {actuator_delay}')
 
+# Save optimized parameters to a text file
+# Get current timestamp for the filename
+from datetime import datetime
+now = datetime.now()
+timestamp = now.strftime("%Y%m%d_%H%M%S")
+
+# Create filename with timestamp
+param_save_path = f"{fig_save_path}/optimized_params_{timestamp}.txt"
+
+
+with open(param_save_path, 'w') as f:
+    f.write("Optimized Parameters:\n")
+    f.write("-----------------\n")
+    f.write(f"A:\n{cal_params.A_init}\n\n")
+    f.write(f"B:\n{cal_params.B_init}\n\n") 
+    f.write(f"C_aud:\n{cal_params.C_aud_init}\n\n")
+    f.write(f"C_som:\n{cal_params.C_som_init}\n\n")
+    f.write(f"K_aud: {cal_params.K_aud_init}\n")
+    f.write(f"L_aud: {cal_params.L_aud_init}\n")
+    f.write(f"K_som: {cal_params.K_som_init}\n")
+    f.write(f"L_som: {cal_params.L_som_init}\n")
+    f.write(f"Auditory sensor delay: {sensor_delay_aud}\n")
+    f.write(f"Somatosensory sensor delay: {sensor_delay_som}\n")
+    f.write(f"Actuator delay: {actuator_delay}\n")
+
+print(f"Optimized parameters saved to {param_save_path}")
+
+
 #Run simulation with calibrated params
 system = RelEstController(cal_params.A_init, cal_params.B_init, cal_params.C_aud_init, secondinput_C=cal_params.C_som_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory','Somatosensory'], timeseries=T_sim, K_vals=[cal_params.K_aud_init, cal_params.K_som_init], L_vals=[cal_params.L_aud_init, cal_params.L_som_init])    
 system.simulate_with_2sensors(delta_t_s_aud=sensor_delay_aud, delta_t_s_som=sensor_delay_som, delta_t_a=actuator_delay)
