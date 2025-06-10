@@ -2,6 +2,62 @@ from .base import ControlSystem
 from utils.analysis import AnalysisMixin
 from visualization.plotting import PlotMixin 
 from utils.processing import set_array_value
+from abc import ABC, abstractmethod
+
+class SignalProcessor(ABC):
+    @abstractmethod
+    def process_sensor_channel(self, controller, t, delta_t_s, delta_t_a, channel):
+        pass
+
+class RelEstController(SignalProcessor):
+    def process_sensor_channel(self, controller, t, delta_t_s, delta_t_a, channel):
+        pass
+
+class AbsEstController(SignalProcessor):
+    def process_sensor_channel(self, controller, t, delta_t_s, delta_t_a, channel):
+        pass
+    
+class RelEstController(ControlSystem, AnalysisMixin, PlotMixin):
+
+class CreateController(ControlSystem, AnalysisMixin, PlotMixin):
+    def simulate_with_1sensor(self, control_type='Relative Est.', delta_t_s=1, delta_t_a=1):
+        # Initialize sensor delay attributes
+        self.delta_t_s = delta_t_s
+        self.delta_t_a = delta_t_a
+
+        if self.delta_t_s == 0 and self.delta_t_a == 0:
+            self.arch_title = f'{control_type} System, No Delays'
+        else:
+            self.arch_title = f'{control_type} System, Delays (Sensor Delay: ' + str(self.delta_t_s) + ', Actuator Delay: ' + str(self.delta_t_a) + ')'
+        for t in range(0,self.time_length-1-(self.delta_t_s+1+self.delta_t_a)):
+            #Brain Implementation
+            self.process_sensor_channel(t, self.delta_t_s, self.delta_t_a, channel=None)
+
+            #World/Non-sensor specific processing
+            self.process_global(t, channels=None)
+
+    def simulate_with_2sensors(self, control_type='Relative Est.', delta_t_s_aud=1, delta_t_s_som=1, delta_t_a=1):
+        # Initialize sensor delay attributes
+        self.delta_t_s_aud = delta_t_s_aud
+        self.delta_t_s_som = delta_t_s_som
+        self.delta_t_a = delta_t_a
+
+        #Set architecture title
+        if self.delta_t_s_aud == 0 and self.delta_t_s_som == 0 and self.delta_t_a == 0:
+            self.arch_title = f'{control_type} 2-Sensor System, No Delays'
+        else:
+            self.arch_title = f'{control_type} 2-Sensor System, Delays (Auditory Sensor Delay: ' + str(self.delta_t_s_aud) + ', Somatosensory Sensor Delay: ' + str(self.delta_t_s_som) + ', Actuator Delay: ' + str(self.delta_t_a) + ')'
+     
+        #Process each sensor channel
+        for t in range(0,self.time_length-1-(self.delta_t_s_aud+1+self.delta_t_s_som+1+self.delta_t_a)):
+            #Brain Implementation
+            for channel in ["aud", "som"]:
+                delta_t_s_ch = getattr(self, f"delta_t_s_{channel}")
+                self.process_sensor_channel(t, delta_t_s_ch, self.delta_t_a, channel)
+             
+            #World/Non-sensor specific processing
+            channels = ["aud", "som"]
+            self.process_global(t, channels)
 
 class AbsEstController(ControlSystem, AnalysisMixin, PlotMixin):
     def simulate(self, delta_t_s=1, delta_t_a=1):
@@ -167,4 +223,5 @@ class RelEstController(ControlSystem, AnalysisMixin, PlotMixin):
 
         #Update x
         self.x[t+1]=self.A*self.x[t]+self.B*self.u[t]+self.w[t]
-    
+
+class ControllerImplementation(ControlSystem, AnalysisMixin, PlotMixin):
