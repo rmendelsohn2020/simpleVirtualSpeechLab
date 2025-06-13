@@ -47,6 +47,12 @@ class PlotMixin:
             self.start_dist = start_dist
         custom_time = range(self.start_dist-1,self.start_dist+8)
 
+        #TODO: Replace cluge
+        if arch == 'x_based':
+            self.arch_title = 'Absolute Est. System'
+        elif arch == 'q_based':
+            self.arch_title = 'Relative Est. System'
+
         if 'Absolute Est. System' in self.arch_title:
             plot_list = [self.v, self.y, self.y_tilde, self.x_s, self.x_hat, self.x_a, self.u, self.x]
             plot_labels = ['v', 'y', 'y_tilde', 'x_s', 'x_hat', 'x_a', 'u', 'x']
