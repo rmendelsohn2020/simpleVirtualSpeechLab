@@ -48,20 +48,21 @@ class PlotMixin:
         custom_time = range(self.start_dist-1,self.start_dist+8)
 
         #TODO: Replace cluge
-        if arch == 'x_based':
-            self.arch_title = 'Absolute Est. System'
-        elif arch == 'q_based':
-            self.arch_title = 'Relative Est. System'
+        if 'abs' in arch:
+            if '2sens' in arch:
+                self.arch_title = 'Absolute Est. 2-Sensor System'
+            else:
+                self.arch_title = 'Absolute Est. System'
+        elif 'rel' in arch:
+            if '2sens' in arch:
+                self.arch_title = 'Relative Est. 2-Sensor System'
+            else:
+                self.arch_title = 'Relative Est. System'
+        else:
+            raise ValueError(f"Unknown system type: {arch}")
 
-        if 'Absolute Est. System' in self.arch_title:
-            plot_list = [self.v, self.y, self.y_tilde, self.x_s, self.x_hat, self.x_a, self.u, self.x]
-            plot_labels = ['v', 'y', 'y_tilde', 'x_s', 'x_hat', 'x_a', 'u', 'x']
-            fig, axs = plt.subplots(len(plot_list), 1, figsize=(10, 8), sharex=True)
-        elif 'Relative Est. System' in self.arch_title:
-            plot_list = [self.v, self.y, self.y_tilde, self.x_s, self.q_hat, self.x_a, self.u, self.x]
-            plot_labels = ['v', 'y', 'y_tilde', 'x_s', 'q_hat', 'x_a', 'u', 'x']
-            fig, axs = plt.subplots(len(plot_list), 1, figsize=(10, 8), sharex=True)
-        elif '2-Sensor System' in self.arch_title:
+        # Create figure and subplots based on system type
+        if '2-Sensor System' in self.arch_title:
             # Define pairs of signals to plot side by side
             if 'Relative Est.' in self.arch_title:
                 signal_pairs = [
@@ -92,12 +93,10 @@ class PlotMixin:
             # Plot each pair of signals
             for i, (data1, data2, label1, label2) in enumerate(signal_pairs):
                 axs[i, 0].plot(self.timeseries[custom_time], data1[custom_time], label=label1)
-                #axs[i, 0].plot(self.timeseries[custom_time], self.r[custom_time], label='reference')
                 axs[i, 0].set_ylabel(label1)
                 axs[i, 0].legend(loc='upper right')
                 
                 axs[i, 1].plot(self.timeseries[custom_time], data2[custom_time], label=label2)
-                #axs[i, 1].plot(self.timeseries[custom_time], self.r[custom_time], label='reference')
                 axs[i, 1].set_ylabel(label2)
                 axs[i, 1].legend(loc='upper right')
                 
@@ -105,19 +104,24 @@ class PlotMixin:
                 if i == 0:
                     axs[i, 0].set_title('Auditory')
                     axs[i, 1].set_title('Somatosensory')
-            
-            # Adjust layout
-            plt.tight_layout()
-            
         else:
-            raise ValueError(f"Unknown system type: {self.arch_title}")
-    
-        if '2-Sensor System' not in self.arch_title:
+            if 'Absolute Est. System' in self.arch_title:
+                plot_list = [self.v, self.y, self.y_tilde, self.x_s, self.x_hat, self.x_a, self.u, self.x]
+                plot_labels = ['v', 'y', 'y_tilde', 'x_s', 'x_hat', 'x_a', 'u', 'x']
+            elif 'Relative Est. System' in self.arch_title:
+                plot_list = [self.v, self.y, self.y_tilde, self.x_s, self.q_hat, self.x_a, self.u, self.x]
+                plot_labels = ['v', 'y', 'y_tilde', 'x_s', 'q_hat', 'x_a', 'u', 'x']
+            else:
+                raise ValueError(f"Unknown system type: {self.arch_title}")
+            
+            fig, axs = plt.subplots(len(plot_list), 1, figsize=(10, 8), sharex=True)
+            
             for i, (data, label) in enumerate(zip(plot_list, plot_labels)):
                 axs[i].plot(self.timeseries[custom_time], data[custom_time], label=label)
                 axs[i].set_ylabel(label)
                 axs[i].legend(loc='upper right')
 
+        # Set the title for all cases
         fig.suptitle(self.arch_title + ' Control System Simulation\n K=' + str(self.K1) + ' Kf=' + str(self.Kf) + ' L=' + str(self.L1))
 
         if fig_save_path:
@@ -174,7 +178,7 @@ class PlotMixin:
         plt.legend()
         plt.show()
 
-    def plot_data_overlay(self, arch,target_response, pitch_pert_data, time_trunc=None, resp_trunc=None, pitch_pert_truncated=None, fig_save_path=None):
+    def plot_data_overlay(self, arch, target_response, pitch_pert_data, time_trunc=None, resp_trunc=None, pitch_pert_truncated=None, fig_save_path=None):
         plt.plot(time_trunc, target_response, label='target', color='red')
         plt.plot(time_trunc, resp_trunc, label='response', color='blue')
 
@@ -188,5 +192,6 @@ class PlotMixin:
             filename = f"{fig_save_path}/{arch}_plot_data_overlay_{self.ref_type}.png"
             plt.savefig(filename)
             print(f"Figure saved to {filename}")
+
         plt.show()
    

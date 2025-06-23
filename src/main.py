@@ -13,7 +13,7 @@ C_som = np.array([1])
 
 # Run simulation
 ref_types = ['sin'] #'sin' or 'null'
-archs = ['x_based'] #['x_based','q_based']
+archs = ['abs2sens'] #['x_based','q_based']
 actuator_delays = 1
 sensor_delays = 3
 
@@ -36,7 +36,7 @@ for ref_item in ref_types:
 
         #New controller
         system = Controller(sensor_processor=AbsoluteSensorProcessor(), input_A=A, input_B=B, input_C=C_aud, ref_type=ref_item, K_vals=[0.5, 0.2], L_vals=[0.5, 0.5])
-        system.simulate_with_1sensor(delta_t_s=sensor_delays, delta_t_a=actuator_delays)
+        system.simulate_with_2sensors(delta_t_s_aud=sensor_delays, delta_t_s_som=sensor_delays, delta_t_a=actuator_delays)
         print(arch_item, ref_item, 'RMSE:', system.rmse())
         system.plot_transient(arch_item) 
         system.plot_all(arch_item)

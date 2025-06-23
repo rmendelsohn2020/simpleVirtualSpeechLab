@@ -22,14 +22,16 @@ starting_params:
   delays:
     actuator: 2
     sensor:
-      auditory: 3  
+      auditory: 20
       somatosensory: 3
   system:
-    A: [0.5]
-    B: [1]
-    C_aud: [1]
+    A: [0.8]
+    B: [1.1]
+    C_aud: [0.4]
     C_som: [1]
-    K_aud: 0.2655
-    L_aud: 0.2655  
-    K_som: 0.2655
-    L_som: 0.2655  
+    K_aud: 0.20
+    L_aud: 0.30
+    Kf_aud: 0.35
+    K_som: 0.36002242
+    L_som: 0.40707844  
+    Kf_som: 0.35

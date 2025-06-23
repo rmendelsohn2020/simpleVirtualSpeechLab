@@ -2,7 +2,7 @@ import numpy as np
 import control as ct
 
 class ControlSystem:
-    def __init__(self, input_A, input_B, input_C, secondinput_C=None, ref_type='sin', dist_custom=None, dist_type=['GenSens'], timeseries=None, K_vals=[None, None], L_vals=[None, None], tune_Rs=[1,1], tune_RNs=[1,1]):
+    def __init__(self, input_A, input_B, input_C, secondinput_C=None, ref_type='sin', dist_custom=None, dist_type=['GenSens'], timeseries=None, K_vals=[None, None], L_vals=[None, None], Kf_vals=[None, None], tune_Rs=[1,1], tune_RNs=[1,1]):
         #NOTE: input arguments can describe certain features of the system matrices,
         #but currently are used to directly as the matrices A, B, C, Q and R
         print('dist_type: ', dist_type)
@@ -12,6 +12,9 @@ class ControlSystem:
             self.C_aud = input_C
             self.C_som = secondinput_C
             self.C = input_C
+            #TODO: Set gains for each controller
+            # self.set_gains(K_vals[0], L_vals[0], 'aud_')
+            # self.set_gains(K_vals[1], L_vals[1], 'som_')
         else:
             self.C = input_C
             self.C_aud = input_C
@@ -98,16 +101,23 @@ class ControlSystem:
             self.r = np.zeros((self.time_length,1))
 
         #Set gains for base controller (Not used for 2 sensor channel controllers)
-        self.set_gains(K_vals[0], L_vals[0], '')
+        if K_vals[0] is not None and L_vals[0] is not None:
+            self.set_gains(K_vals[0], L_vals[0], '')
 
         #Set gains for each controller
         controller_prefixes = ['aud_', 'som_']
-        for K_val, L_val, tune_R, tune_RN, prefix in zip(K_vals, L_vals, tune_Rs, tune_RNs, controller_prefixes):
+        for K_val, L_val, Kf_val, tune_R, tune_RN, prefix in zip(K_vals, L_vals, Kf_vals, tune_Rs, tune_RNs, controller_prefixes):
             if K_val is not None and L_val is not None:
-                self.set_gains(K_val, L_val, prefix)
+                self.set_gains(K_val, L_val, Kf_val, prefix)
             else:
-                K, L = self.calculate_gains(self.A, self.B, self.C, tune_R=tune_R, tune_RN=tune_RN, prefix=prefix)
-                self.set_gains(K, L, prefix)
+                # Use appropriate C matrix for each channel
+                C_channel = self.C_aud if prefix == 'aud_' else self.C_som if prefix == 'som_' else self.C
+                K, L = self.calculate_gains(self.A, self.B, C_channel, tune_R=tune_R, tune_RN=tune_RN, prefix=prefix)
+                self.set_gains(K, L, Kf_val, prefix)
+                print(f'{prefix}K: {K}')
+                print(f'{prefix}L: {L}')
+                print(f'{prefix}Kf: {Kf_val}')
+
         
 
     def calculate_gains(self, A, B, C, tune_R=1, tune_RN=1, prefix=''):
@@ -127,12 +137,24 @@ class ControlSystem:
 
         return K, L
         
-    def set_gains(self, K, L, prefix=''):
+    def set_gains(self, K, L, Kf=None, prefix=''):
         # Set gains with optional prefix for different controllers
+        print(f"Setting gains for {prefix}: K={K}, L={L}")
+        
+        # Ensure K and L are in the right format (convert scalars to arrays if needed)
+        if np.isscalar(K):
+            K = np.array([[K]])
+        if np.isscalar(L):
+            L = np.array([[L]])
+            
         setattr(self, prefix + 'K1', K)
         setattr(self, prefix + 'K2', K) 
 
-        Kf=K
+        if Kf is None:
+            Kf=K
+        elif np.isscalar(Kf):
+            Kf = np.array([[Kf]])
+            
         setattr(self, prefix + 'Kf', Kf)
         setattr(self, prefix + 'Kf1', Kf)
         setattr(self, prefix + 'Kf2', Kf)
@@ -140,5 +162,6 @@ class ControlSystem:
         setattr(self, prefix + 'L1', L)
 
         # Internal feedback gains for time delay compensation
+        del_gain_num = 0
         setattr(self, prefix + 'L_del', 0)
-        setattr(self, prefix + 'K_del', 0)
+        setattr(self, prefix + 'K_del', del_gain_num)

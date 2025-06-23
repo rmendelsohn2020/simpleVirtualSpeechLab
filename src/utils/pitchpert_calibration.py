@@ -33,7 +33,7 @@ def get_perturbation_event_times(file_path, epsilon=1e-10):
     return time_at_first_nonzero, time_at_maximum
 
 class PitchPertCalibrator:
-    def __init__(self, params_obj, target_response, pert_signal, T_sim, truncate_start, truncate_end):
+    def __init__(self, params_obj, target_response, pert_signal, T_sim, truncate_start, truncate_end, sensor_processor=AbsoluteSensorProcessor()):
         """
         Initialize the calibrator with system parameters and data.
         
@@ -44,6 +44,7 @@ class PitchPertCalibrator:
             T_sim: Time series for simulation
             truncate_start: Start time for truncation
             truncate_end: End time for truncation
+            sensor_processor: Sensor processor to use (default: AbsoluteSensorProcessor)
         """
         self.params_obj = params_obj
         self.target_response = target_response
@@ -51,6 +52,7 @@ class PitchPertCalibrator:
         self.T_sim = T_sim
         self.truncate_start = truncate_start
         self.truncate_end = truncate_end
+        self.sensor_processor = sensor_processor
         self.mse_history = []
 
     def objective_function(self, params):
@@ -78,7 +80,7 @@ class PitchPertCalibrator:
         
         # Create system with current parameters
         system = Controller(
-            sensor_processor=AbsoluteSensorProcessor(), 
+            sensor_processor=self.sensor_processor, 
             input_A=A, input_B=B, input_C=C_aud, 
             ref_type=self.params_obj.ref_type, 
             K_vals=[K_aud, K_som], 

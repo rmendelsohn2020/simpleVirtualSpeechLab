@@ -5,7 +5,7 @@ import yaml
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 
-def data_prep(filepath, timeseries, save_path, convert_opt='multiplier2cents', pert_onset=None):
+def data_prep(filepath, timeseries, save_path, convert_opt='multiplier2cents', pert_onset=None, showplt=True):
     #Data Prep
     incoming_data = np.loadtxt(filepath, delimiter=',', skiprows=1)
 
@@ -61,7 +61,8 @@ def data_prep(filepath, timeseries, save_path, convert_opt='multiplier2cents', p
         data_cents_interp = np.column_stack((time_conv_interp, distortion_signal_cents_interp, participant_traces_cents_interp))
         data_path_interp= os.path.join(save_path,'data_cents_interp.csv')
         np.savetxt(data_path_interp, data_cents_interp, delimiter=',', header='Time,Distortion Signal (cents),Participant 1 (cents),Participant 2 (cents),Participant 3 (cents),Participant 4 (cents),Participant 5 (cents),Participant 6 (cents),Participant 7 (cents),Participant 8 (cents),Participant 9 (cents),Participant 10 (cents),Participant 11 (cents),Participant 12 (cents),Participant 13 (cents),Participant 14 (cents),Participant 15 (cents),Participant 16 (cents),Participant 17 (cents),Participant 18 (cents),Participant 19 (cents)', comments='')
-        plot_calibration_data(save_path, 'data_cents_interp.csv')
+        if showplt:
+            plot_calibration_data(save_path, 'data_cents_interp.csv')
     return data_path_interp
     # Load the .csv file with cents data and interpolate the points
     #data_converted = np.loadtxt('data_cents.csv', delimiter=',', skiprows=1)

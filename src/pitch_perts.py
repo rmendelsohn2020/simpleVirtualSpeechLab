@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
+import os
 
 from controllers.base import ControlSystem
 from controllers.implementations import Controller, AbsoluteSensorProcessor, RelativeSensorProcessor
@@ -35,8 +36,13 @@ truncate_end = params_obj.pert_onset + 1.0
 
 #Interpolate the calibration data
 timeseries = truncate_data(T_sim, None, truncate_start, truncate_end)[0]
-data_path_interp = data_prep(data_path, timeseries, data_save_path, convert_opt='multiplier2cents', pert_onset=params_obj.pert_onset)
+# if os.path.exists(os.path.join(data_save_path,'data_cents.csv')):
+#     data_path_interp = os.path.join(data_save_path,'data_cents.csv')
+#     print('WARNING: Using existing data_cents.csv file')
+# else:  
+#     data_path_interp = data_prep(data_path, timeseries, data_save_path, convert_opt='multiplier2cents', pert_onset=params_obj.pert_onset)
 
+data_path_interp = data_prep(data_path, timeseries, data_save_path, convert_opt='multiplier2cents', pert_onset=params_obj.pert_onset, showplt=False)
 
 # Load calibration data
 calibration_data = np.loadtxt(data_path_interp, delimiter=',', skiprows=1)
@@ -77,7 +83,8 @@ if calibrate_opt == True:
         pert_signal=pert_signal,
         T_sim=T_sim,
         truncate_start=truncate_start,
-        truncate_end=truncate_end
+        truncate_end=truncate_end,
+        sensor_processor=RelativeSensorProcessor()
     )
 
     # Run the calibration
@@ -100,14 +107,17 @@ else:
     sensor_delay_som = int(cal_params.sensor_delay_som)
     actuator_delay = int(cal_params.actuator_delay)
 
-#Run simulation with calibrated params
-system = Controller(sensor_processor=RelativeSensorProcessor(), input_A=cal_params.A_init, input_B=cal_params.B_init, input_C=cal_params.C_aud_init, ref_type=params_obj.ref_type, K_vals=[cal_params.K_aud_init, cal_params.K_som_init], L_vals=[cal_params.L_aud_init, cal_params.L_som_init], timeseries=T_sim)    
-#system.simulate_with_2sensors(delta_t_s_aud=sensor_delay_aud, delta_t_s_som=sensor_delay_som, delta_t_a=actuator_delay)
-system.simulate_with_1sensor(delta_t_s=sensor_delay_aud, delta_t_a=actuator_delay)
-#system.plot_transient('abs2sens', start_dist=pert_signal.start_ramp_up) 
-system.plot_all('abs2sens', custom_sig='dist', fig_save_path=fig_save_path)
-timeseries_truncated, system_response_truncated = truncate_data(T_sim, system.x, truncate_start, truncate_end)
+#Run simulation with calibrated params (Specify Gains)
+system = Controller(sensor_processor=RelativeSensorProcessor(), input_A=cal_params.A_init, input_B=cal_params.B_init, input_C=cal_params.C_aud_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], K_vals=[cal_params.K_aud_init, cal_params.K_som_init], L_vals=[cal_params.L_aud_init, cal_params.L_som_init], Kf_vals=[cal_params.Kf_aud_init, cal_params.Kf_som_init], timeseries=T_sim)    
+#Run simulation with calibrated params (Calculate Gains)
+#system = Controller(sensor_processor=RelativeSensorProcessor(), input_A=cal_params.A_init, input_B=cal_params.B_init, input_C=cal_params.C_aud_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], timeseries=T_sim)    
+system.simulate_with_2sensors(delta_t_s_aud=sensor_delay_aud, delta_t_s_som=sensor_delay_som, delta_t_a=actuator_delay)
+#system.simulate_with_1sensor(delta_t_s=sensor_delay_aud, delta_t_a=actuator_delay)
 
+#system.plot_transient('abs2sens', start_dist=pert_signal.start_ramp_up) 
+#system.plot_all('abs2sens', custom_sig='dist', fig_save_path=fig_save_path)
+
+timeseries_truncated, system_response_truncated = truncate_data(T_sim, system.x, truncate_start, truncate_end)
 aud_pert_truncated = truncate_data(T_sim, system.v_aud, truncate_start, truncate_end)[1]
 system.plot_data_overlay('abs2sens', target_response, pitch_pert_data, time_trunc=timeseries_truncated, resp_trunc=system_response_truncated, pitch_pert_truncated=aud_pert_truncated, fig_save_path=fig_save_path)
 #system.plot_truncated(truncate_start, truncate_end)
