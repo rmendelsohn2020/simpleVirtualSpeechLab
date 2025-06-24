@@ -22,16 +22,30 @@ starting_params:
   delays:
     actuator: 2
     sensor:
-      auditory: 20
+      auditory: 19
       somatosensory: 3
   system:
-    A: [0.8]
-    B: [1.1]
-    C_aud: [0.4]
+    A: [0.75699891]
+    B: [1.09588468]
+    C_aud: [0.40372519]
     C_som: [1]
-    K_aud: 0.20
-    L_aud: 0.30
+    K_aud: 0.17743609531542626
+    L_aud: 0.27839281839073576
     Kf_aud: 0.35
     K_som: 0.36002242
     L_som: 0.40707844  
     Kf_som: 0.35
+
+
+# Optimized parameters:
+# A: [0.75699891]
+# B: [1.09588468]
+# C_aud: [0.40372519]
+# C_som: [1.]
+# K_aud: 0.17743609531542626
+# L_aud: 0.27839281839073576
+# K_som: 0.36002242
+# L_som: 0.40707844
+# sensor_delay_aud: 19
+# sensor_delay_som: 3
+# actuator_delay: 2

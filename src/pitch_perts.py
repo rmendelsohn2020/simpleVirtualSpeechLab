@@ -31,7 +31,7 @@ T_sim = np.arange(0,params_obj.duration, params_obj.dt)
 
 #Truncation to match Smith et al. 2020 data and plots
 truncate = True
-truncate_start = params_obj.pert_onset - 0.5
+truncate_start = params_obj.pert_onset + 0.1
 truncate_end = params_obj.pert_onset + 1.0
 
 #Interpolate the calibration data
@@ -48,6 +48,9 @@ data_path_interp = data_prep(data_path, timeseries, data_save_path, convert_opt=
 calibration_data = np.loadtxt(data_path_interp, delimiter=',', skiprows=1)
 target_response = calibration_data[:, params_obj.trial_ID+2]  # Assuming third column is first participant's target response
 pitch_pert_data = calibration_data[:, 1]
+
+# plt.plot(timeseries, target_response)
+# plt.show()
 
 pitch_pert_rampstart, pitch_pert_rampend = get_perturbation_event_times(data_path_interp)
 print('pitch_pert_rampstart', pitch_pert_rampstart)
@@ -73,9 +76,9 @@ pert_signal = RampedStep1D(params_obj.duration, dt=params_obj.dt, tstart_step=pi
 # system.simulate_with_2sensors(delta_t_s_aud=params_obj.sensor_delay_aud, delta_t_s_som=params_obj.sensor_delay_som, delta_t_a=params_obj.actuator_delay)
 # system.plot_data_overlay('abs2sens', target_response, pitch_pert_data, time_trunc=timeseries_truncated, resp_trunc=system_response_truncated, pitch_pert_truncated=aud_pert_truncated, fig_save_path=fig_save_path)
 
-calibrate_opt = False
+calibrate_opt = 'None'
 
-if calibrate_opt == True:
+if calibrate_opt == 'Standard':
 # Create a calibrator instance
     calibrator = PitchPertCalibrator(
         params_obj=params_obj,
@@ -89,9 +92,37 @@ if calibrate_opt == True:
 
     # Run the calibration
     cal_params, mse_history = calibrator.calibrate(
-        max_iterations=200,
+        max_iterations=400,
         learning_rate=0.01,
         tolerance=1e-6
+    )
+
+    print('mse_history', mse_history)
+
+    sensor_delay_aud = int(cal_params.sensor_delay_aud)
+    sensor_delay_som = int(cal_params.sensor_delay_som)
+    actuator_delay = int(cal_params.actuator_delay)
+
+    readout_optimized_params(cal_params, sensor_delay_aud, sensor_delay_som, actuator_delay)
+elif calibrate_opt == 'Particle Swarm':
+    calibrator = PitchPertCalibrator(
+        params_obj=params_obj,
+        target_response=target_response,
+        pert_signal=pert_signal,
+        T_sim=T_sim,
+        truncate_start=truncate_start,
+        truncate_end=truncate_end,
+        sensor_processor=RelativeSensorProcessor()
+    )
+
+    cal_params, mse_history = calibrator.particle_swarm_calibrate(
+        num_particles=10000,
+        max_iters=1000,
+        convergence_tol=0.01,
+        runs=10,
+        log_interval=20,  # Log every 20 iterations
+        save_interval=100,  # Save intermediate results every 100 iterations
+        output_dir=None  # Uses default output directory
     )
 
     print('mse_history', mse_history)

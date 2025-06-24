@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 from controllers.implementations import Controller, AbsoluteSensorProcessor, RelativeSensorProcessor
 from utils.analysis import AnalysisMixin
@@ -101,6 +102,9 @@ class PitchPertCalibrator:
         timeseries_truncated, system_response_truncated = truncate_data(
             self.T_sim, system.x, self.truncate_start, self.truncate_end
         )
+        # plt.plot(timeseries_truncated, system_response_truncated)
+        # plt.plot(timeseries_truncated, self.target_response)
+        # plt.show()
         return system.mse(system_response_truncated, self.target_response)
 
     def callback_function(self, xk, *args):
@@ -129,17 +133,17 @@ class PitchPertCalibrator:
         """
         # Define parameter bounds
         bounds = [
-            (1e-6, 1.1),      # A
-            (1e-6, 5.0),      # B
+            (1e-6, 2.5),      # A
+            (1e-6, 2.5),      # B
             (1e-6, 5.0),      # C_aud
             (1e-6, 5.0),      # C_som
             (1e-6, 1.0),      # K_aud
             (1e-6, 1.0),      # L_aud
             (1e-6, 1.0),      # K_som
             (1e-6, 1.0),      # L_som
-            (0.0, 10.0),      # sensor_delay_aud
-            (0.0, 10.0),      # sensor_delay_som
-            (0.0, 10.0)       # actuator_delay
+            (0.0, 20.0),      # sensor_delay_aud
+            (0.0, 20.0),      # sensor_delay_som
+            (0.0, 20.0)       # actuator_delay
         ]
         
         # Initial parameter values
@@ -164,7 +168,7 @@ class PitchPertCalibrator:
         result = minimize(
             self.objective_function,
             x0,
-            method='trust-constr',
+            method='L-BFGS-B',
             bounds=bounds,
             options={'maxiter': max_iterations},
             callback=self.callback_function
@@ -190,4 +194,419 @@ class PitchPertCalibrator:
         print(f'Message: {result.message}')
         print(f'Number of MSE values recorded: {len(self.mse_history)}')
         
+        plt.plot(self.mse_history)
+        plt.show()
         return self.params_obj, self.mse_history
+    
+    def particle_swarm_calibrate(self, num_particles=10000, max_iters=1000, convergence_tol=0.01, runs=10, 
+                                log_interval=10, save_interval=50, output_dir=None):
+        """
+        Enhanced particle swarm calibration with comprehensive logging and monitoring.
+        
+        Args:
+            num_particles: Number of particles in the swarm
+            max_iters: Maximum iterations per run
+            convergence_tol: Convergence tolerance
+            runs: Number of independent runs
+            log_interval: How often to log progress (iterations)
+            save_interval: How often to save intermediate results (iterations)
+            output_dir: Directory to save outputs (if None, uses default)
+        """
+        import os
+        import json
+        from datetime import datetime
+        import matplotlib
+        matplotlib.use('Agg')  # Use non-interactive backend for SSH
+        
+        # Setup output directory
+        if output_dir is None:
+            from utils.get_configs import get_paths
+            path_obj = get_paths()
+            output_dir = path_obj.fig_save_path
+        
+        # Create timestamped output directory
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        run_dir = os.path.join(output_dir, f"particle_swarm_run_{timestamp}")
+        os.makedirs(run_dir, exist_ok=True)
+        
+        # Setup logging
+        log_file = os.path.join(run_dir, "optimization_log.txt")
+        progress_file = os.path.join(run_dir, "progress_history.json")
+        
+        def log_message(message, print_to_console=True):
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            log_entry = f"[{timestamp}] {message}"
+            with open(log_file, 'a') as f:
+                f.write(log_entry + '\n')
+            if print_to_console:
+                print(log_entry)
+        
+        # Initialize tracking variables
+        bounds = np.array([
+            (1e-6, 2.5),   # A
+            (1e-6, 2.5),   # B
+            (1e-6, 5.0),   # C_aud
+            (1e-6, 5.0),   # C_som
+            (1e-6, 1.0),   # K_aud
+            (1e-6, 1.0),   # L_aud
+            (1e-6, 1.0),   # K_som
+            (1e-6, 1.0),   # L_som
+            (0.0, 20.0),   # sensor_delay_aud
+            (0.0, 20.0),   # sensor_delay_som
+            (0.0, 20.0),   # actuator_delay
+        ])
+        num_params = bounds.shape[0]
+        best_overall_rmse = np.inf
+        best_overall_params = None
+        
+        # Progress tracking
+        progress_data = {
+            'runs': [],
+            'overall_best_rmse': [],
+            'overall_best_params': [],
+            'run_summaries': []
+        }
+        
+        log_message(f"Starting particle swarm optimization with {runs} runs", True)
+        log_message(f"Parameters: particles={num_particles}, max_iters={max_iters}, convergence_tol={convergence_tol}", True)
+        log_message(f"Output directory: {run_dir}", True)
+        
+        start_time = datetime.now()
+        
+        for run in range(runs):
+            run_start_time = datetime.now()
+            log_message(f"Starting run {run + 1}/{runs}", True)
+            
+            particles = np.random.uniform(bounds[:, 0], bounds[:, 1], (num_particles, num_params))
+            best_rmse = np.inf
+            best_params = None
+            best_history = []
+            no_improvement_count = 0
+            
+            # Run-specific progress tracking
+            run_progress = {
+                'run_number': run + 1,
+                'iterations': [],
+                'best_rmse_history': [],
+                'mean_rmse_history': [],
+                'std_rmse_history': [],
+                'convergence_info': {}
+            }
+            
+            for it in range(max_iters):
+                # Evaluate all particles
+                rmses = np.array([self.objective_function(p) for p in particles])
+                current_best_rmse = np.min(rmses)
+                current_best_idx = np.argmin(rmses)
+                current_best_params = particles[current_best_idx]
+                
+                # Track progress
+                best_history.append(current_best_rmse)
+                run_progress['iterations'].append(it + 1)
+                run_progress['best_rmse_history'].append(float(current_best_rmse))
+                run_progress['mean_rmse_history'].append(float(np.mean(rmses)))
+                run_progress['std_rmse_history'].append(float(np.std(rmses)))
+                
+                # Check for improvement
+                if current_best_rmse < best_rmse - 1e-8:
+                    best_rmse = current_best_rmse
+                    best_params = current_best_params.copy()
+                    no_improvement_count = 0
+                    log_message(f"Run {run + 1}, Iter {it + 1}: New best RMSE = {best_rmse:.6f}", False)
+                else:
+                    no_improvement_count += 1
+                
+                # Log progress periodically
+                if (it + 1) % log_interval == 0:
+                    log_message(f"Run {run + 1}, Iter {it + 1}/{max_iters}: Best RMSE = {best_rmse:.6f}, "
+                              f"Mean RMSE = {np.mean(rmses):.6f}, No improvement = {no_improvement_count}", False)
+                
+                # Save intermediate results periodically
+                if (it + 1) % save_interval == 0:
+                    self._save_intermediate_results(run_dir, run, it, best_params, best_rmse, 
+                                                  particles, rmses, progress_data)
+                
+                # Check convergence
+                convergence_reached = False
+                convergence_reason = ""
+                if np.max(rmses) - np.min(rmses) < convergence_tol * best_rmse:
+                    convergence_reached = True
+                    convergence_reason = "Tolerance reached"
+                elif no_improvement_count >= 100:
+                    convergence_reached = True
+                    convergence_reason = "No improvement for 100 iterations"
+                
+                if convergence_reached:
+                    log_message(f"Run {run + 1} converged at iteration {it + 1}: {convergence_reason}", True)
+                    run_progress['convergence_info'] = {
+                        'converged': True,
+                        'iteration': it + 1,
+                        'reason': convergence_reason
+                    }
+                    break
+                
+                # Update particles from best 10% of swarm
+                elite_fraction = 0.1
+                elite_size = int(num_particles * elite_fraction)
+                elite_idx = np.argsort(rmses)[:elite_size]
+                elite = particles[elite_idx]
+                new_particles = np.array([
+                    np.clip(np.random.uniform(0, 1) * elite[np.random.randint(elite_size)] +
+                            (1 - np.random.uniform(0, 1)) * elite[np.random.randint(elite_size)],
+                            bounds[:, 0], bounds[:, 1])
+                    for _ in range(num_particles)
+                ])
+                particles = new_particles
+            
+            # Run completed
+            run_end_time = datetime.now()
+            run_duration = (run_end_time - run_start_time).total_seconds()
+            
+            log_message(f"Run {run + 1} completed in {run_duration:.1f}s. Final RMSE: {best_rmse:.6f}", True)
+            
+            # Update overall best if this run was better
+            if best_rmse < best_overall_rmse:
+                best_overall_rmse = best_rmse
+                best_overall_params = best_params.copy()
+                log_message(f"New overall best RMSE: {best_overall_rmse:.6f}", True)
+            
+            # Store run summary
+            progress_data['runs'].append(run + 1)
+            progress_data['overall_best_rmse'].append(float(best_overall_rmse))
+            progress_data['overall_best_params'].append(best_overall_params.tolist() if best_overall_params is not None else None)
+            progress_data['run_summaries'].append({
+                'run_number': run + 1,
+                'final_rmse': float(best_rmse),
+                'iterations_completed': len(best_history),
+                'duration_seconds': run_duration,
+                'convergence_info': run_progress['convergence_info']
+            })
+            
+            # Save run progress
+            with open(progress_file, 'w') as f:
+                json.dump(progress_data, f, indent=2)
+            
+            # Create run-specific plots
+            self._create_run_plots(run_dir, run, run_progress)
+        
+        # Final summary
+        total_duration = (datetime.now() - start_time).total_seconds()
+        log_message(f"All runs completed in {total_duration:.1f}s", True)
+        log_message(f"Best overall RMSE: {best_overall_rmse:.6f}", True)
+        
+        # Save final results
+        self._save_final_results(run_dir, best_overall_params, best_overall_rmse, progress_data)
+        
+        # Apply best parameters to model
+        self._apply_params_to_model(best_overall_params)
+        
+        return best_overall_params, best_overall_rmse
+    
+    def _save_intermediate_results(self, run_dir, run, iteration, best_params, best_rmse, particles, rmses, progress_data):
+        """Save intermediate results during optimization."""
+        import os
+        import json
+        
+        # Save current best parameters
+        if best_params is not None:
+            param_file = os.path.join(run_dir, f"run_{run+1}_iter_{iteration+1}_best_params.json")
+            param_data = {
+                'run': run + 1,
+                'iteration': iteration + 1,
+                'best_rmse': float(best_rmse),
+                'parameters': {
+                    'A': float(best_params[0]),
+                    'B': float(best_params[1]),
+                    'C_aud': float(best_params[2]),
+                    'C_som': float(best_params[3]),
+                    'K_aud': float(best_params[4]),
+                    'L_aud': float(best_params[5]),
+                    'K_som': float(best_params[6]),
+                    'L_som': float(best_params[7]),
+                    'sensor_delay_aud': float(best_params[8]),
+                    'sensor_delay_som': float(best_params[9]),
+                    'actuator_delay': float(best_params[10])
+                }
+            }
+            with open(param_file, 'w') as f:
+                json.dump(param_data, f, indent=2)
+        
+        # Save swarm statistics
+        stats_file = os.path.join(run_dir, f"run_{run+1}_iter_{iteration+1}_swarm_stats.json")
+        stats_data = {
+            'run': run + 1,
+            'iteration': iteration + 1,
+            'best_rmse': float(np.min(rmses)),
+            'mean_rmse': float(np.mean(rmses)),
+            'std_rmse': float(np.std(rmses)),
+            'min_rmse': float(np.min(rmses)),
+            'max_rmse': float(np.max(rmses))
+        }
+        with open(stats_file, 'w') as f:
+            json.dump(stats_data, f, indent=2)
+    
+    def _create_run_plots(self, run_dir, run, run_progress):
+        """Create plots for a specific run."""
+        import matplotlib.pyplot as plt
+        import os
+        
+        # Convergence plot
+        plt.figure(figsize=(12, 8))
+        
+        plt.subplot(2, 2, 1)
+        plt.plot(run_progress['iterations'], run_progress['best_rmse_history'], 'b-', linewidth=2, label='Best RMSE')
+        plt.xlabel('Iteration')
+        plt.ylabel('RMSE')
+        plt.title(f'Run {run + 1}: Best RMSE Convergence')
+        plt.legend()
+        plt.grid(True)
+        
+        plt.subplot(2, 2, 2)
+        plt.plot(run_progress['iterations'], run_progress['mean_rmse_history'], 'r-', linewidth=2, label='Mean RMSE')
+        plt.fill_between(run_progress['iterations'], 
+                        np.array(run_progress['mean_rmse_history']) - np.array(run_progress['std_rmse_history']),
+                        np.array(run_progress['mean_rmse_history']) + np.array(run_progress['std_rmse_history']),
+                        alpha=0.3, color='red')
+        plt.xlabel('Iteration')
+        plt.ylabel('RMSE')
+        plt.title(f'Run {run + 1}: Swarm Statistics')
+        plt.legend()
+        plt.grid(True)
+        
+        plt.subplot(2, 2, 3)
+        plt.plot(run_progress['iterations'], run_progress['std_rmse_history'], 'g-', linewidth=2, label='Std RMSE')
+        plt.xlabel('Iteration')
+        plt.ylabel('RMSE Std')
+        plt.title(f'Run {run + 1}: Swarm Diversity')
+        plt.legend()
+        plt.grid(True)
+        
+        plt.subplot(2, 2, 4)
+        plt.semilogy(run_progress['iterations'], run_progress['best_rmse_history'], 'b-', linewidth=2, label='Best RMSE (log scale)')
+        plt.xlabel('Iteration')
+        plt.ylabel('RMSE (log scale)')
+        plt.title(f'Run {run + 1}: Convergence (Log Scale)')
+        plt.legend()
+        plt.grid(True)
+        
+        plt.tight_layout()
+        plt.savefig(os.path.join(run_dir, f'run_{run+1}_convergence.png'), dpi=300, bbox_inches='tight')
+        plt.close()
+    
+    def _save_final_results(self, run_dir, best_params, best_rmse, progress_data):
+        """Save final optimization results."""
+        import os
+        import json
+        from datetime import datetime
+        
+        # Save final parameters
+        final_params_file = os.path.join(run_dir, "final_optimized_params.json")
+        param_data = {
+            'optimization_completed': datetime.now().isoformat(),
+            'best_rmse': float(best_rmse),
+            'parameters': {
+                'A': float(best_params[0]),
+                'B': float(best_params[1]),
+                'C_aud': float(best_params[2]),
+                'C_som': float(best_params[3]),
+                'K_aud': float(best_params[4]),
+                'L_aud': float(best_params[5]),
+                'K_som': float(best_params[6]),
+                'L_som': float(best_params[7]),
+                'sensor_delay_aud': float(best_params[8]),
+                'sensor_delay_som': float(best_params[9]),
+                'actuator_delay': float(best_params[10])
+            }
+        }
+        with open(final_params_file, 'w') as f:
+            json.dump(param_data, f, indent=2)
+        
+        # Create overall convergence plot
+        import matplotlib.pyplot as plt
+        
+        plt.figure(figsize=(15, 10))
+        
+        # Plot best RMSE for each run
+        plt.subplot(2, 3, 1)
+        plt.plot(progress_data['runs'], progress_data['overall_best_rmse'], 'bo-', linewidth=2, markersize=8)
+        plt.xlabel('Run Number')
+        plt.ylabel('Best RMSE')
+        plt.title('Best RMSE by Run')
+        plt.grid(True)
+        
+        # Plot run summaries
+        plt.subplot(2, 3, 2)
+        run_numbers = [summary['run_number'] for summary in progress_data['run_summaries']]
+        final_rmses = [summary['final_rmse'] for summary in progress_data['run_summaries']]
+        plt.bar(run_numbers, final_rmses, alpha=0.7)
+        plt.xlabel('Run Number')
+        plt.ylabel('Final RMSE')
+        plt.title('Final RMSE by Run')
+        plt.grid(True)
+        
+        # Plot run durations
+        plt.subplot(2, 3, 3)
+        durations = [summary['duration_seconds'] for summary in progress_data['run_summaries']]
+        plt.bar(run_numbers, durations, alpha=0.7, color='green')
+        plt.xlabel('Run Number')
+        plt.ylabel('Duration (seconds)')
+        plt.title('Run Duration')
+        plt.grid(True)
+        
+        # Plot iterations completed
+        plt.subplot(2, 3, 4)
+        iterations = [summary['iterations_completed'] for summary in progress_data['run_summaries']]
+        plt.bar(run_numbers, iterations, alpha=0.7, color='orange')
+        plt.xlabel('Run Number')
+        plt.ylabel('Iterations Completed')
+        plt.title('Iterations per Run')
+        plt.grid(True)
+        
+        # Plot convergence status
+        plt.subplot(2, 3, 5)
+        converged = [1 if summary['convergence_info']['converged'] else 0 for summary in progress_data['run_summaries']]
+        plt.bar(run_numbers, converged, alpha=0.7, color='red')
+        plt.xlabel('Run Number')
+        plt.ylabel('Converged (1=Yes, 0=No)')
+        plt.title('Convergence Status')
+        plt.grid(True)
+        plt.ylim(0, 1.2)
+        
+        # Overall progress
+        plt.subplot(2, 3, 6)
+        plt.plot(progress_data['runs'], progress_data['overall_best_rmse'], 'ro-', linewidth=3, markersize=10)
+        plt.xlabel('Run Number')
+        plt.ylabel('Overall Best RMSE')
+        plt.title('Overall Progress')
+        plt.grid(True)
+        
+        plt.tight_layout()
+        plt.savefig(os.path.join(run_dir, 'overall_optimization_summary.png'), dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        # Save summary text file
+        summary_file = os.path.join(run_dir, "optimization_summary.txt")
+        with open(summary_file, 'w') as f:
+            f.write("PARTICLE SWARM OPTIMIZATION SUMMARY\n")
+            f.write("===================================\n\n")
+            f.write(f"Optimization completed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"Best overall RMSE: {best_rmse:.6f}\n\n")
+            f.write("Best parameters:\n")
+            f.write(f"  A: {best_params[0]:.6f}\n")
+            f.write(f"  B: {best_params[1]:.6f}\n")
+            f.write(f"  C_aud: {best_params[2]:.6f}\n")
+            f.write(f"  C_som: {best_params[3]:.6f}\n")
+            f.write(f"  K_aud: {best_params[4]:.6f}\n")
+            f.write(f"  L_aud: {best_params[5]:.6f}\n")
+            f.write(f"  K_som: {best_params[6]:.6f}\n")
+            f.write(f"  L_som: {best_params[7]:.6f}\n")
+            f.write(f"  sensor_delay_aud: {best_params[8]:.6f}\n")
+            f.write(f"  sensor_delay_som: {best_params[9]:.6f}\n")
+            f.write(f"  actuator_delay: {best_params[10]:.6f}\n\n")
+            
+            f.write("Run summaries:\n")
+            for summary in progress_data['run_summaries']:
+                f.write(f"  Run {summary['run_number']}: RMSE={summary['final_rmse']:.6f}, "
+                       f"Iterations={summary['iterations_completed']}, "
+                       f"Duration={summary['duration_seconds']:.1f}s, "
+                       f"Converged={'Yes' if summary['convergence_info']['converged'] else 'No'}\n")
