@@ -1,9 +1,10 @@
 from utils.get_configs import get_paths
 from datetime import datetime
 
-def readout_optimized_params(cal_params, sensor_delay_aud, sensor_delay_som, actuator_delay, format_opt=['txt','print']):
-    path_obj = get_paths()
-    fig_save_path = path_obj.fig_save_path
+def readout_optimized_params(cal_params, sensor_delay_aud, sensor_delay_som, actuator_delay, format_opt=['txt','print'], output_dir=None):
+    if output_dir is None:
+        path_obj = get_paths()
+        output_dir = path_obj.fig_save_path
 
     if 'print' in format_opt:
         print('Optimized parameters:')
@@ -27,9 +28,7 @@ def readout_optimized_params(cal_params, sensor_delay_aud, sensor_delay_som, act
         timestamp = now.strftime("%Y%m%d_%H%M%S")
 
         # Create filename with timestamp
-        param_save_path = f"{fig_save_path}/optimized_params_{timestamp}.txt"
-
-
+        param_save_path = f"{output_dir}/optimized_params_{timestamp}.txt"
 
         with open(param_save_path, 'w') as f:
             f.write("Optimized Parameters:\n")

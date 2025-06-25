@@ -178,7 +178,7 @@ class PlotMixin:
         plt.legend()
         plt.show()
 
-    def plot_data_overlay(self, arch, target_response, pitch_pert_data, time_trunc=None, resp_trunc=None, pitch_pert_truncated=None, fig_save_path=None):
+    def plot_data_overlay(self, arch, target_response, pitch_pert_data, time_trunc=None, resp_trunc=None, pitch_pert_truncated=None, fig_save_path=None, output_dir=None):
         plt.plot(time_trunc, target_response, label='target', color='red')
         plt.plot(time_trunc, resp_trunc, label='response', color='blue')
 
@@ -188,8 +188,10 @@ class PlotMixin:
      
         plt.legend()
         
-        if fig_save_path:
-            filename = f"{fig_save_path}/{arch}_plot_data_overlay_{self.ref_type}.png"
+        if fig_save_path or output_dir:
+            # Use output_dir if provided, otherwise use fig_save_path
+            save_dir = output_dir if output_dir is not None else fig_save_path
+            filename = f"{save_dir}/{arch}_plot_data_overlay_{self.ref_type}.png"
             plt.savefig(filename)
             print(f"Figure saved to {filename}")
 

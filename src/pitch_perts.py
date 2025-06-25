@@ -31,7 +31,7 @@ T_sim = np.arange(0,params_obj.duration, params_obj.dt)
 
 #Truncation to match Smith et al. 2020 data and plots
 truncate = True
-truncate_start = params_obj.pert_onset + 0.1
+truncate_start = params_obj.pert_onset - 0.5
 truncate_end = params_obj.pert_onset + 1.0
 
 #Interpolate the calibration data
@@ -115,7 +115,7 @@ elif calibrate_opt == 'Particle Swarm':
         sensor_processor=RelativeSensorProcessor()
     )
 
-    cal_params, mse_history = calibrator.particle_swarm_calibrate(
+    cal_params, mse_history, run_dir = calibrator.particle_swarm_calibrate(
         num_particles=10000,
         max_iters=1000,
         convergence_tol=0.01,
@@ -126,12 +126,14 @@ elif calibrate_opt == 'Particle Swarm':
     )
 
     print('mse_history', mse_history)
+    print(f'Results saved to: {run_dir}')
 
     sensor_delay_aud = int(cal_params.sensor_delay_aud)
     sensor_delay_som = int(cal_params.sensor_delay_som)
     actuator_delay = int(cal_params.actuator_delay)
 
-    readout_optimized_params(cal_params, sensor_delay_aud, sensor_delay_som, actuator_delay)
+    # Save optimized parameters to the timestamped folder
+    readout_optimized_params(cal_params, sensor_delay_aud, sensor_delay_som, actuator_delay, output_dir=run_dir)
 else:
     cal_params = params_obj
     sensor_delay_aud = int(cal_params.sensor_delay_aud)
@@ -150,5 +152,10 @@ system.simulate_with_2sensors(delta_t_s_aud=sensor_delay_aud, delta_t_s_som=sens
 
 timeseries_truncated, system_response_truncated = truncate_data(T_sim, system.x, truncate_start, truncate_end)
 aud_pert_truncated = truncate_data(T_sim, system.v_aud, truncate_start, truncate_end)[1]
-system.plot_data_overlay('abs2sens', target_response, pitch_pert_data, time_trunc=timeseries_truncated, resp_trunc=system_response_truncated, pitch_pert_truncated=aud_pert_truncated, fig_save_path=fig_save_path)
+
+# Only run plotting if this script is run directly (not imported)
+if __name__ == "__main__":
+    # Use run_dir if available (from particle swarm), otherwise use default fig_save_path
+    plot_output_dir = run_dir if calibrate_opt == 'Particle Swarm' and 'run_dir' in locals() else fig_save_path
+    system.plot_data_overlay('abs2sens', target_response, pitch_pert_data, time_trunc=timeseries_truncated, resp_trunc=system_response_truncated, pitch_pert_truncated=aud_pert_truncated, output_dir=plot_output_dir)
 #system.plot_truncated(truncate_start, truncate_end)

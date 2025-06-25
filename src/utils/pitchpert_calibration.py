@@ -174,18 +174,8 @@ class PitchPertCalibrator:
             callback=self.callback_function
         )
         
-        # Update parameters object with optimized values
-        self.params_obj.A_init = np.array([result.x[0]])
-        self.params_obj.B_init = np.array([result.x[1]])
-        self.params_obj.C_aud_init = np.array([result.x[2]])
-        self.params_obj.C_som_init = np.array([result.x[3]])
-        self.params_obj.K_aud_init = result.x[4]
-        self.params_obj.L_aud_init = result.x[5]
-        self.params_obj.K_som_init = result.x[6]
-        self.params_obj.L_som_init = result.x[7]
-        self.params_obj.sensor_delay_aud = result.x[8]
-        self.params_obj.sensor_delay_som = result.x[9]
-        self.params_obj.actuator_delay = result.x[10]
+        # Apply optimized parameters to the model
+        self.apply_optimized_params(result.x)
         
         print('Optimization completed:')
         print(f'Final MSE: {result.fun}')
@@ -211,6 +201,9 @@ class PitchPertCalibrator:
             log_interval: How often to log progress (iterations)
             save_interval: How often to save intermediate results (iterations)
             output_dir: Directory to save outputs (if None, uses default)
+            
+        Returns:
+            tuple: (optimized_params, mse_history, run_dir) where run_dir is the timestamped output directory
         """
         import os
         import json
@@ -243,17 +236,17 @@ class PitchPertCalibrator:
         
         # Initialize tracking variables
         bounds = np.array([
-            (1e-6, 2.5),   # A
+            (1e-6, 1.5),   # A
             (1e-6, 2.5),   # B
-            (1e-6, 5.0),   # C_aud
-            (1e-6, 5.0),   # C_som
+            (1e-6, 4.0),   # C_aud
+            (1e-6, 4.0),   # C_som
             (1e-6, 1.0),   # K_aud
             (1e-6, 1.0),   # L_aud
             (1e-6, 1.0),   # K_som
             (1e-6, 1.0),   # L_som
-            (0.0, 20.0),   # sensor_delay_aud
-            (0.0, 20.0),   # sensor_delay_som
-            (0.0, 20.0),   # actuator_delay
+            (1.0, 20.0),   # sensor_delay_aud
+            (1.0, 20.0),   # sensor_delay_som
+            (1.0, 20.0),   # actuator_delay
         ])
         num_params = bounds.shape[0]
         best_overall_rmse = np.inf
@@ -277,7 +270,8 @@ class PitchPertCalibrator:
             run_start_time = datetime.now()
             log_message(f"Starting run {run + 1}/{runs}", True)
             
-            particles = np.random.uniform(bounds[:, 0], bounds[:, 1], (num_particles, num_params))
+            #particles = np.random.uniform(bounds[:, 0], bounds[:, 1], (num_particles, num_params))
+            particles = self.quantized_uniform(bounds[:, 0], bounds[:, 1], precision=5, size=(num_particles, num_params))
             best_rmse = np.inf
             best_params = None
             best_history = []
@@ -290,7 +284,11 @@ class PitchPertCalibrator:
                 'best_rmse_history': [],
                 'mean_rmse_history': [],
                 'std_rmse_history': [],
-                'convergence_info': {}
+                'convergence_info': {
+                    'converged': False,
+                    'iteration': max_iters,
+                    'reason': 'Maximum iterations reached'
+                }
             }
             
             for it in range(max_iters):
@@ -350,10 +348,15 @@ class PitchPertCalibrator:
                 elite_size = int(num_particles * elite_fraction)
                 elite_idx = np.argsort(rmses)[:elite_size]
                 elite = particles[elite_idx]
+                
+                # Generate new particles using quantized uniform distribution
                 new_particles = np.array([
-                    np.clip(np.random.uniform(0, 1) * elite[np.random.randint(elite_size)] +
-                            (1 - np.random.uniform(0, 1)) * elite[np.random.randint(elite_size)],
-                            bounds[:, 0], bounds[:, 1])
+                    self.quantized_uniform(
+                        bounds[:, 0], 
+                        bounds[:, 1], 
+                        precision=5, 
+                        size=(1, num_params)
+                    ).flatten()
                     for _ in range(num_particles)
                 ])
                 particles = new_particles
@@ -386,21 +389,48 @@ class PitchPertCalibrator:
             with open(progress_file, 'w') as f:
                 json.dump(progress_data, f, indent=2)
             
-            # Create run-specific plots
+            # Create run plots
             self._create_run_plots(run_dir, run, run_progress)
         
-        # Final summary
-        total_duration = (datetime.now() - start_time).total_seconds()
+        # All runs completed
+        end_time = datetime.now()
+        total_duration = (end_time - start_time).total_seconds()
+        
         log_message(f"All runs completed in {total_duration:.1f}s", True)
         log_message(f"Best overall RMSE: {best_overall_rmse:.6f}", True)
+        
+        # Apply the best parameters to the model
+        if best_overall_params is not None:
+            self.apply_optimized_params(best_overall_params)
         
         # Save final results
         self._save_final_results(run_dir, best_overall_params, best_overall_rmse, progress_data)
         
-        # Apply best parameters to model
-        self._apply_params_to_model(best_overall_params)
+        # Return the optimized parameters, mse history, and run directory
+        return self.params_obj, best_overall_rmse, run_dir
+
+    def quantized_uniform(self, low, high, precision, size=None):
+        """
+        Generate random numbers between `low` and `high` with specified decimal `precision`.
+        This avoids post-hoc rounding and ensures evenly spaced values.
         
-        return best_overall_params, best_overall_rmse
+        Args:
+            low (float or array): Lower bound.
+            high (float or array): Upper bound.
+            precision (int): Number of decimal places.
+            size (int or tuple): Shape of the output array.
+            
+        Returns:
+            np.ndarray: Array of quantized random values.
+        """
+        steps = 10 ** precision
+        low_int = np.round(low * steps).astype(int)
+        high_int = np.round(high * steps).astype(int)
+        
+        # Random integers in quantized grid
+        rand_ints = np.random.randint(low_int, high_int + 1, size=size)
+        return rand_ints.astype(float) / steps
+        
     
     def _save_intermediate_results(self, run_dir, run, iteration, best_params, best_rmse, particles, rmses, progress_data):
         """Save intermediate results during optimization."""
@@ -610,3 +640,30 @@ class PitchPertCalibrator:
                        f"Iterations={summary['iterations_completed']}, "
                        f"Duration={summary['duration_seconds']:.1f}s, "
                        f"Converged={'Yes' if summary['convergence_info']['converged'] else 'No'}\n")
+
+    def apply_optimized_params(self, optimized_params):
+        """
+        Apply optimized parameters to the model.
+        
+        Args:
+            optimized_params: Array of optimized parameter values in the order:
+                [A, B, C_aud, C_som, K_aud, L_aud, K_som, L_som, 
+                 sensor_delay_aud, sensor_delay_som, actuator_delay]
+        """
+        if optimized_params is not None:
+            # Update parameters object with optimized values
+            self.params_obj.A_init = np.array([optimized_params[0]])
+            self.params_obj.B_init = np.array([optimized_params[1]])
+            self.params_obj.C_aud_init = np.array([optimized_params[2]])
+            self.params_obj.C_som_init = np.array([optimized_params[3]])
+            self.params_obj.K_aud_init = optimized_params[4]
+            self.params_obj.L_aud_init = optimized_params[5]
+            self.params_obj.K_som_init = optimized_params[6]
+            self.params_obj.L_som_init = optimized_params[7]
+            self.params_obj.sensor_delay_aud = optimized_params[8]
+            self.params_obj.sensor_delay_som = optimized_params[9]
+            self.params_obj.actuator_delay = optimized_params[10]
+        
+    def _apply_params_to_model(self, best_params):
+        # Implementation of _apply_params_to_model method
+        pass
