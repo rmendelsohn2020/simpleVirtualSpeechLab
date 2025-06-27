@@ -343,23 +343,45 @@ class PitchPertCalibrator:
                     }
                     break
                 
-                # Update particles from best 10% of swarm
+                # Paper's method: Replace fraction with random linear combinations of best fits
                 elite_fraction = 0.1
+                replacement_fraction = 0.5
+
                 elite_size = int(num_particles * elite_fraction)
+                replacement_size = int(num_particles * replacement_fraction)
+                regeneration_size = num_particles - elite_size - replacement_size
+
+                # Identify elite particles (best fits)
                 elite_idx = np.argsort(rmses)[:elite_size]
                 elite = particles[elite_idx]
-                
-                # Generate new particles using quantized uniform distribution
-                new_particles = np.array([
-                    self.quantized_uniform(
-                        bounds[:, 0], 
-                        bounds[:, 1], 
-                        precision=5, 
-                        size=(1, num_params)
-                    ).flatten()
-                    for _ in range(num_particles)
-                ])
-                particles = new_particles
+
+                # Generate new particles
+                new_particles = []
+
+                # Keep elite particles
+                new_particles.extend(elite)
+
+                # Generate crossover particles
+                for _ in range(replacement_size):
+                    parent1 = elite[np.random.randint(elite_size)]
+                    parent2 = elite[np.random.randint(elite_size)]
+                    weight = np.random.uniform(0, 1)
+                    new_particle = weight * parent1 + (1 - weight) * parent2
+                    
+                    # Clip and quantize
+                    new_particle = np.clip(new_particle, bounds[:, 0], bounds[:, 1])
+                    steps = 10 ** 3
+                    quantized_particle = np.round(new_particle * steps) / steps
+                    quantized_particle = np.clip(quantized_particle, bounds[:, 0], bounds[:, 1])
+                    
+                    new_particles.append(quantized_particle)
+
+                # Generate random particles for the remainder
+                if regeneration_size > 0:
+                    new_particles.extend(self.quantized_uniform(bounds[:, 0], bounds[:, 1], precision=3, size=(regeneration_size, num_params)))
+
+                # Update particle swarm
+                particles = np.array(new_particles)
             
             # Run completed
             run_end_time = datetime.now()
@@ -667,3 +689,4 @@ class PitchPertCalibrator:
     def _apply_params_to_model(self, best_params):
         # Implementation of _apply_params_to_model method
         pass
+

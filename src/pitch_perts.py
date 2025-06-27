@@ -76,7 +76,7 @@ pert_signal = RampedStep1D(params_obj.duration, dt=params_obj.dt, tstart_step=pi
 # system.simulate_with_2sensors(delta_t_s_aud=params_obj.sensor_delay_aud, delta_t_s_som=params_obj.sensor_delay_som, delta_t_a=params_obj.actuator_delay)
 # system.plot_data_overlay('abs2sens', target_response, pitch_pert_data, time_trunc=timeseries_truncated, resp_trunc=system_response_truncated, pitch_pert_truncated=aud_pert_truncated, fig_save_path=fig_save_path)
 
-calibrate_opt = 'None'
+calibrate_opt = 'Particle Swarm'
 
 if calibrate_opt == 'Standard':
 # Create a calibrator instance
@@ -116,10 +116,10 @@ elif calibrate_opt == 'Particle Swarm':
     )
 
     cal_params, mse_history, run_dir = calibrator.particle_swarm_calibrate(
-        num_particles=10000,
-        max_iters=1000,
+        num_particles=100,
+        max_iters=100,
         convergence_tol=0.01,
-        runs=10,
+        runs=1,
         log_interval=20,  # Log every 20 iterations
         save_interval=100,  # Save intermediate results every 100 iterations
         output_dir=None  # Uses default output directory
