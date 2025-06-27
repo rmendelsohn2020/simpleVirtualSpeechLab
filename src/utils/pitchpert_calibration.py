@@ -271,7 +271,7 @@ class PitchPertCalibrator:
             log_message(f"Starting run {run + 1}/{runs}", True)
             
             #particles = np.random.uniform(bounds[:, 0], bounds[:, 1], (num_particles, num_params))
-            particles = self.quantized_uniform(bounds[:, 0], bounds[:, 1], precision=5, size=(num_particles, num_params))
+            particles = self.quantized_uniform(bounds[:, 0], bounds[:, 1], precision=3, size=(num_particles, num_params))
             best_rmse = np.inf
             best_params = None
             best_history = []
@@ -345,7 +345,7 @@ class PitchPertCalibrator:
                 
                 # Paper's method: Replace fraction with random linear combinations of best fits
                 elite_fraction = 0.1
-                replacement_fraction = 0.5
+                replacement_fraction = 0.3
 
                 elite_size = int(num_particles * elite_fraction)
                 replacement_size = int(num_particles * replacement_fraction)

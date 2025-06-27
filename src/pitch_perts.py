@@ -116,7 +116,7 @@ elif calibrate_opt == 'Particle Swarm':
     )
 
     cal_params, mse_history, run_dir = calibrator.particle_swarm_calibrate(
-        num_particles=100,
+        num_particles=1000,
         max_iters=100,
         convergence_tol=0.01,
         runs=1,

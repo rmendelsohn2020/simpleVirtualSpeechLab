@@ -55,7 +55,7 @@ def main():
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Starting particle swarm calibration...")
         
         cal_params, mse_history, run_dir = calibrator.particle_swarm_calibrate(
-            num_particles=100,
+            num_particles=10,
             max_iters=50,
             convergence_tol=0.01,
             runs=10,
