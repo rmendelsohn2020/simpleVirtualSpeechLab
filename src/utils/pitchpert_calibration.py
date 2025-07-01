@@ -240,7 +240,7 @@ class PitchPertCalibrator:
             (1e-6, 2.5),   # B
             (1e-6, 4.0),   # C_aud
             (1e-6, 4.0),   # C_som
-            (1e-6, 1.0),   # K_aud
+            (1e-6, 1.0),   # K_aud TODO: Increase upper bound (10?)
             (1e-6, 1.0),   # L_aud
             (1e-6, 1.0),   # K_som
             (1e-6, 1.0),   # L_som

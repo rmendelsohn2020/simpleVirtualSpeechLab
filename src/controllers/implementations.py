@@ -137,6 +137,10 @@ class Controller(ControlSystem, AnalysisMixin, PlotMixin):
     def process_global(self, t, channels):
         #Sum control signals from all channels
         self.u[t] = self.x_a_aud[t] + self.x_a_som[t]
+
+        #Update x
+        self.x[t+1] = self.A*self.x[t] + self.B*self.u[t] + self.w[t]
+        
         if channels is None:
             channels = [""]
         for channel in channels:
@@ -155,8 +159,8 @@ class Controller(ControlSystem, AnalysisMixin, PlotMixin):
             setattr(self, f"y{channel_suffix}", set_array_value(y_channel, t+1, y_val))
 
         #Update x
-        self.x[t+1] = self.A*self.x[t] + self.B*self.u[t] + self.w[t]
-
+        # self.x[t+1] = self.A*self.x[t] + self.B*self.u[t] + self.w[t]
+        
     def simulate_with_1sensor(self, delta_t_s=1, delta_t_a=1):
         self.delta_t_s = delta_t_s
         self.delta_t_a = delta_t_a

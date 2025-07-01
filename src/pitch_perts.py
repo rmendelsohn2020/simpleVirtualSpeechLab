@@ -12,6 +12,7 @@ from utils.signal_synth import RampedStep1D
 from utils.get_configs import get_paths, get_params
 from utils.pitchpert_calibration import get_perturbation_event_times, PitchPertCalibrator
 from visualization.readouts import readout_optimized_params
+from controllers.simpleDIVAtest import simpleDIVAtest
 
 # Get experiment parameters
 path_obj = get_paths()
@@ -76,7 +77,8 @@ pert_signal = RampedStep1D(params_obj.duration, dt=params_obj.dt, tstart_step=pi
 # system.simulate_with_2sensors(delta_t_s_aud=params_obj.sensor_delay_aud, delta_t_s_som=params_obj.sensor_delay_som, delta_t_a=params_obj.actuator_delay)
 # system.plot_data_overlay('abs2sens', target_response, pitch_pert_data, time_trunc=timeseries_truncated, resp_trunc=system_response_truncated, pitch_pert_truncated=aud_pert_truncated, fig_save_path=fig_save_path)
 
-calibrate_opt = 'Particle Swarm'
+calibrate_opt = None
+system_choice = 'DIVA'
 
 if calibrate_opt == 'Standard':
 # Create a calibrator instance
@@ -140,12 +142,30 @@ else:
     sensor_delay_som = int(cal_params.sensor_delay_som)
     actuator_delay = int(cal_params.actuator_delay)
 
-#Run simulation with calibrated params (Specify Gains)
-system = Controller(sensor_processor=RelativeSensorProcessor(), input_A=cal_params.A_init, input_B=cal_params.B_init, input_C=cal_params.C_aud_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], K_vals=[cal_params.K_aud_init, cal_params.K_som_init], L_vals=[cal_params.L_aud_init, cal_params.L_som_init], Kf_vals=[cal_params.Kf_aud_init, cal_params.Kf_som_init], timeseries=T_sim)    
-#Run simulation with calibrated params (Calculate Gains)
-#system = Controller(sensor_processor=RelativeSensorProcessor(), input_A=cal_params.A_init, input_B=cal_params.B_init, input_C=cal_params.C_aud_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], timeseries=T_sim)    
-system.simulate_with_2sensors(delta_t_s_aud=sensor_delay_aud, delta_t_s_som=sensor_delay_som, delta_t_a=actuator_delay)
-#system.simulate_with_1sensor(delta_t_s=sensor_delay_aud, delta_t_a=actuator_delay)
+
+if system_choice == 'Relative':
+    #Run simulation with calibrated params (Specify Gains)
+    system = Controller(sensor_processor=RelativeSensorProcessor(), input_A=cal_params.A_init, input_B=cal_params.B_init, input_C=cal_params.C_aud_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], K_vals=[cal_params.K_aud_init, cal_params.K_som_init], L_vals=[cal_params.L_aud_init, cal_params.L_som_init], Kf_vals=[cal_params.Kf_aud_init, cal_params.Kf_som_init], timeseries=T_sim)    
+    #Run simulation with calibrated params (Calculate Gains)
+    #system = Controller(sensor_processor=RelativeSensorProcessor(), input_A=cal_params.A_init, input_B=cal_params.B_init, input_C=cal_params.C_aud_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], timeseries=T_sim)    
+    system.simulate_with_2sensors(delta_t_s_aud=sensor_delay_aud, delta_t_s_som=sensor_delay_som, delta_t_a=actuator_delay)
+    #system.simulate_with_1sensor(delta_t_s=sensor_delay_aud, delta_t_a=actuator_delay)
+elif system_choice == 'Absolute':
+    system = Controller(sensor_processor=AbsoluteSensorProcessor(), input_A=cal_params.A_init, input_B=cal_params.B_init, input_C=cal_params.C_aud_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], K_vals=[cal_params.K_aud_init, cal_params.K_som_init], L_vals=[cal_params.L_aud_init, cal_params.L_som_init], Kf_vals=[cal_params.Kf_aud_init, cal_params.Kf_som_init], timeseries=T_sim)    
+    system.simulate_with_2sensors(delta_t_s_aud=sensor_delay_aud, delta_t_s_som=sensor_delay_som, delta_t_a=actuator_delay)
+elif system_choice == 'DIVA':
+    alpha_A = 0.01
+    alpha_S = 0.01
+    alpha_Av = None
+    alpha_Sv = None
+    tau_A = 1
+    tau_S = 1
+
+    system = simpleDIVAtest(timeseries, params_obj.dt, pert_signal.signal, pert_signal.start_ramp_up, target_response, alpha_A, alpha_S, alpha_Av, alpha_Sv, tau_A, tau_S)
+    system.simpleDIVAimplementation()
+    plt.plot(system.timeseries, system.f)
+    plt.show()
+
 
 #system.plot_transient('abs2sens', start_dist=pert_signal.start_ramp_up) 
 #system.plot_all('abs2sens', custom_sig='dist', fig_save_path=fig_save_path)
