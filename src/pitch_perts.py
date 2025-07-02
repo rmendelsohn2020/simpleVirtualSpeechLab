@@ -43,8 +43,7 @@ timeseries = truncate_data(T_sim, None, truncate_start, truncate_end)[0]
 # else:  
 #     data_path_interp = data_prep(data_path, timeseries, data_save_path, convert_opt='multiplier2cents', pert_onset=params_obj.pert_onset)
 
-data_path_interp = data_prep(data_path, timeseries, data_save_path, convert_opt='multiplier2cents', pert_onset=params_obj.pert_onset, showplt=False)
-
+data_path_interp = data_prep(data_path, timeseries, data_save_path, convert_opt='multiplier', pert_onset=params_obj.pert_onset, showplt=False)
 # Load calibration data
 calibration_data = np.loadtxt(data_path_interp, delimiter=',', skiprows=1)
 target_response = calibration_data[:, params_obj.trial_ID+2]  # Assuming third column is first participant's target response
@@ -161,11 +160,21 @@ elif system_choice == 'DIVA':
     tau_A = 1
     tau_S = 1
 
-    system = simpleDIVAtest(timeseries, params_obj.dt, pert_signal.signal, pert_signal.start_ramp_up, target_response, alpha_A, alpha_S, alpha_Av, alpha_Sv, tau_A, tau_S)
+    system = simpleDIVAtest(T_sim, params_obj.dt, pert_signal.signal, pert_signal.start_ramp_up, target_response, alpha_A, alpha_S, alpha_Av, alpha_Sv, tau_A, tau_S)
     system.simpleDIVAimplementation()
+
+    print('system.timeseries', system.timeseries.shape)
+    print('system.f', system.f.shape)
+    print('system.f_A', system.f_A.shape)
+    print('system.f_S', system.f_S.shape)
+    print('system.f_Ci', system.f_Ci.shape)
+    print('system.pert_P', system.pert_P.shape)
+    # print('system.pert_P', system.pert_P)
+    print('f_Target', system.f_Target)
+
+    plt.plot(system.timeseries, system.pert_P)
     plt.plot(system.timeseries, system.f)
     plt.show()
-
 
 #system.plot_transient('abs2sens', start_dist=pert_signal.start_ramp_up) 
 #system.plot_all('abs2sens', custom_sig='dist', fig_save_path=fig_save_path)
