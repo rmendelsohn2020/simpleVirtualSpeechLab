@@ -27,7 +27,7 @@ params_obj = get_params()
 
 ###Define Perturbation Experiment Parameters
 T_sim = np.arange(0,params_obj.duration, params_obj.dt)
-
+units = 'multiplier'
 ###Load Data
 
 #Truncation to match Smith et al. 2020 data and plots
@@ -42,8 +42,11 @@ timeseries = truncate_data(T_sim, None, truncate_start, truncate_end)[0]
 #     print('WARNING: Using existing data_cents.csv file')
 # else:  
 #     data_path_interp = data_prep(data_path, timeseries, data_save_path, convert_opt='multiplier2cents', pert_onset=params_obj.pert_onset)
-
-data_path_interp = data_prep(data_path, timeseries, data_save_path, convert_opt='multiplier', pert_onset=params_obj.pert_onset, showplt=False)
+if units == 'multiplier':
+    convert_opt = 'multiplier'
+elif units == 'cents':
+    convert_opt='multiplier2cents'
+data_path_interp = data_prep(data_path, timeseries, data_save_path, convert_opt=convert_opt, pert_onset=params_obj.pert_onset, showplt=True)
 # Load calibration data
 calibration_data = np.loadtxt(data_path_interp, delimiter=',', skiprows=1)
 target_response = calibration_data[:, params_obj.trial_ID+2]  # Assuming third column is first participant's target response
@@ -52,16 +55,18 @@ pitch_pert_data = calibration_data[:, 1]
 # plt.plot(timeseries, target_response)
 # plt.show()
 
-pitch_pert_rampstart, pitch_pert_rampend = get_perturbation_event_times(data_path_interp)
+pitch_pert_rampstart, pitch_pert_rampend, max_val = get_perturbation_event_times(data_path_interp, units=units)
 print('pitch_pert_rampstart', pitch_pert_rampstart)
 print('pitch_pert_rampend', pitch_pert_rampend)
 
 ##Generate perturbation signal
 
-pert_signal = RampedStep1D(params_obj.duration, dt=params_obj.dt, tstart_step=pitch_pert_rampstart, t_step_peak=pitch_pert_rampend, amp_step=params_obj.pert_mag,
+pert_signal = RampedStep1D(params_obj.duration, dt=params_obj.dt, tstart_step=pitch_pert_rampstart, t_step_peak=pitch_pert_rampend, amp_step=max_val,
                                             dist_duration=params_obj.pert_duration, ramp_up_duration=None,
                                             ramp_down_duration=params_obj.ramp_down_duration,
-                                        sig_label='Step pertubation')
+                                        sig_label='Step pertubation', units=units)
+plt.plot(T_sim, pert_signal.signal)
+plt.show()
 
 # plt.plot(T_sim, pert_signal.signal)
 # plt.show()
@@ -153,14 +158,15 @@ elif system_choice == 'Absolute':
     system = Controller(sensor_processor=AbsoluteSensorProcessor(), input_A=cal_params.A_init, input_B=cal_params.B_init, input_C=cal_params.C_aud_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], K_vals=[cal_params.K_aud_init, cal_params.K_som_init], L_vals=[cal_params.L_aud_init, cal_params.L_som_init], Kf_vals=[cal_params.Kf_aud_init, cal_params.Kf_som_init], timeseries=T_sim)    
     system.simulate_with_2sensors(delta_t_s_aud=sensor_delay_aud, delta_t_s_som=sensor_delay_som, delta_t_a=actuator_delay)
 elif system_choice == 'DIVA':
-    alpha_A = 0.01
-    alpha_S = 0.01
+    alpha_A = 0.012
+    alpha_S = 0.016
     alpha_Av = None
     alpha_Sv = None
-    tau_A = 1
-    tau_S = 1
+    tau_A = 0.128
+    tau_A_int = round(tau_A/params_obj.dt)
+    tau_S = 0
 
-    system = simpleDIVAtest(T_sim, params_obj.dt, pert_signal.signal, pert_signal.start_ramp_up, target_response, alpha_A, alpha_S, alpha_Av, alpha_Sv, tau_A, tau_S)
+    system = simpleDIVAtest(T_sim, params_obj.dt, pert_signal.signal, pert_signal.start_ramp_up, target_response, alpha_A, alpha_S, alpha_Av, alpha_Sv, tau_A_int, tau_S)
     system.simpleDIVAimplementation()
 
     print('system.timeseries', system.timeseries.shape)

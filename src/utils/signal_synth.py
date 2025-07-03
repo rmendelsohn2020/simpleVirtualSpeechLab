@@ -4,7 +4,7 @@ from visualization.plotting import PlotMixin
 
 
 class RampedStep1D(PlotMixin):
-	def __init__(self, duration, dt=0.01, tstart_step=None, t_step_peak=0, amp_step=1, dist_duration=1.5, ramp_up_duration=0.5, peak_duration=None, ramp_down_duration=0.5, sig_label='Ramped step signal', **kwargs):
+	def __init__(self, duration, dt=0.01, tstart_step=None, t_step_peak=0, amp_step=1, dist_duration=1.5, ramp_up_duration=0.5, peak_duration=None, ramp_down_duration=0.5, sig_label='Ramped step signal', units='cents', **kwargs):
 		#TODO: Add documentation with expected units for each parameter
 		# step_signal = vsl.signals.RampedStep1D(exp_trial.duration, dt=sec_per_step, t_step_peak=exp_trial.step_onset,amp_step=exp_trial.step,
 		#                                 dist_duration=exp_trial.step_duration, ramp_up_duration=exp_trial.ramp_up_duration, 
@@ -76,7 +76,8 @@ class RampedStep1D(PlotMixin):
 			# Use the sign of amp_step to determine ramp direction
 			ramp_down = np.linspace(self.amp_step, 0, end_ramp_down - start_ramp_down)
 			w[start_ramp_down:end_ramp_down] = ramp_down
-
+		if units == 'multiplier':
+			w=w+1
 		self.signal = w
 		self.timeseries = T_sim
 		self.start_ramp_up = start_ramp_up

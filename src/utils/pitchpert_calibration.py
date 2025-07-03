@@ -7,7 +7,7 @@ from utils.analysis import AnalysisMixin
 from visualization.plotting import PlotMixin
 from utils.pitchpert_dataprep import truncate_data
 
-def get_perturbation_event_times(file_path, epsilon=1e-10):
+def get_perturbation_event_times(file_path, units='cents', epsilon=1e-10):
     df = pd.read_csv(file_path)
 
     time_col=0
@@ -17,21 +17,42 @@ def get_perturbation_event_times(file_path, epsilon=1e-10):
     time = df.iloc[:, time_col]
     perturbation = df.iloc[:, perturb_col]
 
-    # Find index of first non-zero perturbation using epsilon tolerance
-    first_nonzero_idx = (perturbation[abs(perturbation) > epsilon].index[0]) - 1
-    print('first_nonzero_idx', first_nonzero_idx)
-
     # Find index of maximum absolute value (peak of perturbation)
     max_abs_val = abs(perturbation).max()
     print('max_abs_val', max_abs_val)
+
     # Find the actual value (could be negative) at the maximum absolute point
     max_idx = (perturbation[abs(perturbation) > (max_abs_val - epsilon)].index[0])
+    max_val = perturbation.iloc[max_idx]
     print('max_idx', max_idx)
-    # Get times
-    time_at_first_nonzero = time.iloc[first_nonzero_idx]
-    time_at_maximum = time.iloc[max_idx]
 
-    return time_at_first_nonzero, time_at_maximum
+    if units == 'cents':
+        # Find index of first non-zero perturbation using epsilon tolerance
+        first_pert_idx = (perturbation[abs(perturbation) > epsilon].index[0]) - 1
+        print('first_pert_idx', first_pert_idx)
+        full_pert_idx = max_idx
+        full_pert_val = max_val
+    elif units == 'multiplier':
+        if max_abs_val == 1.0:
+            first_pert_idx = (perturbation[abs(perturbation) < (1-epsilon)].index[0]) - 1
+            print('first_pert_idx', first_pert_idx)
+            full_pert_val = abs(perturbation).min()
+            full_pert_idx = (perturbation[abs(perturbation) < (full_pert_val + epsilon)].index[0]) - 1
+        else:
+            first_pert_idx = (perturbation[abs(perturbation) > (1-epsilon)].index[0]) - 1
+            print('first_pert_idx', first_pert_idx)
+            full_pert_idx = max_idx
+            full_pert_val = max_val
+
+    print('full_pert_val', full_pert_val)
+    print('full_pert_idx', full_pert_idx)
+    time_at_full_pert = time.iloc[full_pert_idx]
+
+    # Get times
+    time_at_first_pert = time.iloc[first_pert_idx]
+    
+
+    return time_at_first_pert, time_at_full_pert, full_pert_val
 
 class PitchPertCalibrator:
     def __init__(self, params_obj, target_response, pert_signal, T_sim, truncate_start, truncate_end, sensor_processor=AbsoluteSensorProcessor()):
