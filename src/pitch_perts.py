@@ -158,12 +158,12 @@ elif system_choice == 'Absolute':
     system = Controller(sensor_processor=AbsoluteSensorProcessor(), input_A=cal_params.A_init, input_B=cal_params.B_init, input_C=cal_params.C_aud_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], K_vals=[cal_params.K_aud_init, cal_params.K_som_init], L_vals=[cal_params.L_aud_init, cal_params.L_som_init], Kf_vals=[cal_params.Kf_aud_init, cal_params.Kf_som_init], timeseries=T_sim)    
     system.simulate_with_2sensors(delta_t_s_aud=sensor_delay_aud, delta_t_s_som=sensor_delay_som, delta_t_a=actuator_delay)
 elif system_choice == 'DIVA':
-    alpha_A = 0.012
-    alpha_S = 0.016
+    alpha_A = 0.3 #0.012
+    alpha_S = 0.1 #0.016
     alpha_Av = None
     alpha_Sv = None
     tau_A = 0.128
-    tau_A_int = round(tau_A/params_obj.dt)
+    tau_A_int = 1 #round(tau_A/params_obj.dt)
     tau_S = 0
 
     system = simpleDIVAtest(T_sim, params_obj.dt, pert_signal.signal, pert_signal.start_ramp_up, target_response, alpha_A, alpha_S, alpha_Av, alpha_Sv, tau_A_int, tau_S)

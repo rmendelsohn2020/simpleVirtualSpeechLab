@@ -13,7 +13,10 @@ class RampedStep1D(PlotMixin):
 		self.dt = dt
 		self.sig_label = sig_label
 		self.tstart_step = tstart_step
-		self.amp_step = amp_step
+		if units == 'multiplier':
+			self.amp_step = amp_step - 1
+		else:	
+			self.amp_step = amp_step
 		self.ramp_up_duration = ramp_up_duration
 		self.ramp_down_duration = ramp_down_duration
 
@@ -76,6 +79,7 @@ class RampedStep1D(PlotMixin):
 			# Use the sign of amp_step to determine ramp direction
 			ramp_down = np.linspace(self.amp_step, 0, end_ramp_down - start_ramp_down)
 			w[start_ramp_down:end_ramp_down] = ramp_down
+
 		if units == 'multiplier':
 			w=w+1
 		self.signal = w
