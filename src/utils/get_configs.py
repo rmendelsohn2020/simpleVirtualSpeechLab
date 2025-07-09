@@ -111,3 +111,22 @@ def get_params():
 
     return type('ParamsObject', (), {'trace_type': trace_type, 'participant_ID': participant_ID, 'trial_ID': trial_ID, 'duration': duration, 'dt': dt, 'ref_type': ref_type, 'pert_type': pert_type, 'pert_mag': pert_mag, 'pert_onset': pert_onset, 'pert_duration': pert_duration, 'ramp_up_duration': ramp_up_duration, 'ramp_down_duration': ramp_down_duration, 'actuator_delay': actuator_delay, 'sensor_delay_aud': sensor_delay_aud, 'sensor_delay_som': sensor_delay_som, 'A_init': A_init, 'B_init': B_init, 'C_aud_init': C_aud_init, 'C_som_init': C_som_init, 'K_aud_init': K_aud_init, 'L_aud_init': L_aud_init, 'Kf_aud_init': Kf_aud_init, 'K_som_init': K_som_init, 'L_som_init': L_som_init, 'Kf_som_init': Kf_som_init})
 
+def get_diva_params():
+    with open("src/configs/experiment.yaml", "r") as f:
+        config_expt = yaml.safe_load(f)
+
+    kearney_name = config_expt['diva_starting_params']['kearney_name']
+
+    starting_tau_A = config_expt['diva_starting_params']['delays']['tau_A']
+    starting_tau_S = config_expt['diva_starting_params']['delays']['tau_S']
+    starting_tau_As = config_expt['diva_starting_params']['delays']['tau_As']
+    starting_tau_Ss = config_expt['diva_starting_params']['delays']['tau_Ss']
+
+    starting_alpha_A = config_expt['diva_starting_params']['gains']['alpha_A']
+    starting_alpha_S = config_expt['diva_starting_params']['gains']['alpha_S']
+    starting_alpha_As = config_expt['diva_starting_params']['gains']['alpha_As']
+    starting_alpha_Ss = config_expt['diva_starting_params']['gains']['alpha_Ss']
+    starting_alpha_Av = config_expt['diva_starting_params']['gains']['alpha_Av']
+    starting_alpha_Sv = config_expt['diva_starting_params']['gains']['alpha_Sv']
+
+    return type('DivaParamsObject', (), {'kearney_name': kearney_name, 'starting_tau_A': starting_tau_A, 'starting_tau_S': starting_tau_S, 'starting_tau_As': starting_tau_As, 'starting_tau_Ss': starting_tau_Ss, 'starting_alpha_A': starting_alpha_A, 'starting_alpha_S': starting_alpha_S, 'starting_alpha_As': starting_alpha_As, 'starting_alpha_Ss': starting_alpha_Ss, 'starting_alpha_Av': starting_alpha_Av, 'starting_alpha_Sv': starting_alpha_Sv})

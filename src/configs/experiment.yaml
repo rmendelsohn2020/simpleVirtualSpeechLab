@@ -36,6 +36,20 @@ starting_params:
     L_som: 0.40707844  
     Kf_som: 0.35
 
+diva_starting_params:
+  kearney_name: 'D1'
+  delays:
+    tau_A: 2
+    tau_S: 20
+    tau_As: 20
+    tau_Ss: 3
+  gains:
+    alpha_A: 0.8
+    alpha_S: 1.1
+    alpha_As: 0.4
+    alpha_Ss: 1
+    alpha_Av: 0.4
+    alpha_Sv: 1
 
   # delays:
 

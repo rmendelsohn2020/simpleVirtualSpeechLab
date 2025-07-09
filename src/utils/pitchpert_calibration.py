@@ -6,6 +6,7 @@ from controllers.implementations import Controller, AbsoluteSensorProcessor, Rel
 from utils.analysis import AnalysisMixin
 from visualization.plotting import PlotMixin
 from utils.pitchpert_dataprep import truncate_data
+from controllers.simpleDIVAtest import simpleDIVAtest
 
 def get_perturbation_event_times(file_path, units='cents', epsilon=1e-10):
     df = pd.read_csv(file_path)
@@ -88,36 +89,54 @@ class PitchPertCalibrator:
             MSE between simulation and target response
         """
         # Unpack parameters
-        A = np.array([params[0]])
-        B = np.array([params[1]])
-        C_aud = np.array([params[2]])
-        C_som = np.array([params[3]])
-        K_aud = params[4]
-        L_aud = params[5]
-        K_som = params[6]
-        L_som = params[7]
-        sensor_delay_aud = params[8]
-        sensor_delay_som = params[9]
-        actuator_delay = params[10]
-        
-        # Create system with current parameters
-        system = Controller(
-            sensor_processor=self.sensor_processor, 
-            input_A=A, input_B=B, input_C=C_aud, 
-            ref_type=self.params_obj.ref_type, 
-            K_vals=[K_aud, K_som], 
-            L_vals=[L_aud, L_som],
-            dist_custom=self.pert_signal.signal,
-            dist_type=['Auditory'],
-            timeseries=self.T_sim
-        )
-        
-        # Run simulation
-        system.simulate_with_2sensors(
-            delta_t_s_aud=int(sensor_delay_aud),
-            delta_t_s_som=int(sensor_delay_som),
-            delta_t_a=int(actuator_delay)
-        )
+        if self.sensor_processor == DivaSensorProcessor():
+            print('Diva sensor processor')
+            tau_A = params[0]
+            tau_S = params[1]
+            tau_As = params[2]
+            tau_Ss = params[3]
+            alpha_A = params[4]
+            alpha_S = params[5]
+            alpha_As = params[6]
+            alpha_Ss = params[7]
+            alpha_Av = params[8]
+            alpha_Sv = params[9]
+
+            system = simpleDIVAtest(self.T_sim, self.params_obj.dt, self.pert_signal.signal, self.pert_signal.start_ramp_up, self.target_response, alpha_A, alpha_S, alpha_Av, alpha_Sv, tau_A, tau_S)
+            system.simpleDIVAimplementation()
+
+
+        else:
+            A = np.array([params[0]])
+            B = np.array([params[1]])
+            C_aud = np.array([params[2]])
+            C_som = np.array([params[3]])
+            K_aud = params[4]
+            L_aud = params[5]
+            K_som = params[6]
+            L_som = params[7]
+            sensor_delay_aud = params[8]
+            sensor_delay_som = params[9]
+            actuator_delay = params[10]
+            
+            # Create system with current parameters
+            system = Controller(
+                sensor_processor=self.sensor_processor, 
+                input_A=A, input_B=B, input_C=C_aud, 
+                ref_type=self.params_obj.ref_type, 
+                K_vals=[K_aud, K_som], 
+                L_vals=[L_aud, L_som],
+                dist_custom=self.pert_signal.signal,
+                dist_type=['Auditory'],
+                timeseries=self.T_sim
+            )
+            
+            # Run simulation
+            system.simulate_with_2sensors(
+                delta_t_s_aud=int(sensor_delay_aud),
+                delta_t_s_som=int(sensor_delay_som),
+                delta_t_a=int(actuator_delay)
+            )
         
         # Calculate MSE between simulation and calibration data
         timeseries_truncated, system_response_truncated = truncate_data(

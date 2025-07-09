@@ -1,0 +1,25 @@
+# File paths configuration
+paths:
+  base_dir: '/home/rmendelsohn/ArticulatoryFeedback/newVSLCode/'
+  interp_folder: 'Interp_Data'
+  fig_save_path: '/home/rmendelsohn/ArticulatoryFeedback/newVSLCode/Output'
+  data_save_path: '/home/rmendelsohn/ArticulatoryFeedback/newVSLCode/Interp_Data'
+  calibration_data:
+    directory: '/home/rmendelsohn/ArticulatoryFeedback/newVSLCode/DRF-data-sharing'
+    mean_aud_filename: 'secs_Smith-et-al-2020-auditory-perturbation-baseline-normalized.csv'
+    unprocessed_indiv_files:
+      base_study_name: 'Smith-et-al-2020'
+      auditory:
+        path: '/home/rmendelsohn/ArticulatoryFeedback/newVSLCode/DRF-data-sharing/AudPert'
+        basename: 'Smith-et-al-2020-auditory-perturbation-baseline-normalized-DRF'
+      laryngeal:
+        path: '/home/rmendelsohn/ArticulatoryFeedback/newVSLCode/DRF-data-sharing/LarPert'
+        basename: 'Smith-et-al-2020-laryngeal-perturbation-no-masking-baseline-normalized'
+    processed_indiv_files:
+      base_study_name: 'Smith-et-al-2020'
+      auditory:
+        path: '/home/rmendelsohn/ArticulatoryFeedback/newVSLCode/Interp_Data/AudPert'
+        basename: 'secs_Smith-et-al-2020-auditory-perturbation-baseline-normalized-DRF'
+      laryngeal:
+        path: '/home/rmendelsohn/ArticulatoryFeedback/newVSLCode/Interp_Data/LarPert'
+        basename: 'secs_Smith-et-al-2020-laryngeal-perturbation-no-masking-baseline-normalized'
