@@ -26,7 +26,7 @@ class Control_System_simpleDIVA(PlotMixin):
         self.tau_S = tau_S
 
         self.pert_onset = pert_onset
-        self.f_Target = self.calculate_f_target(target_response, self.pert_onset)
+        #self.f_Target = self.calculate_f_target(target_response, self.pert_onset)
         #self.pert_P = self.calculate_pert_P(perturbation)
         self.pert_P = perturbation
         
@@ -51,10 +51,24 @@ class Control_System_simpleDIVA(PlotMixin):
         self.f[0] = self.f_Target
 
 #Sensor processors
+def get_sensor_processor(kearney_name):
+        EQ5_names = ['D1', 'D2']
+        EQ6_names = ['D5', 'D6', 'D7', 'D8', 'D9', 'D10']
+        EQ7_names = ['D11', 'D12', 'D13', 'D14', 'D15']
+        if kearney_name in EQ5_names:
+            return Process_EQ5()
+        elif kearney_name in EQ6_names:
+            return Process_EQ6()
+        elif kearney_name in EQ7_names:
+            return Process_EQ7()
+        else:
+            print(f'No equation found for {kearney_name}')
+            return None
+
 class DivaSensorProcessor(ABC):
     @abstractmethod
     def process_sensor_channel(self, controller, kearney_name, t):
-        pass
+        pass   
 
 class Process_EQ5(DivaSensorProcessor):
     def process_sensor_channel(self, controller, kearney_name, t):
@@ -72,6 +86,7 @@ class Process_EQ5(DivaSensorProcessor):
             controller.f_Ci[t] = controller.alpha_A*(controller.f_Target-controller.f_A[t]) + controller.alpha_S*(controller.f_Target-controller.f_S[t]) #EQ5
         else:
             controller.f_Ci[t] = 0 #TODO: Check this
+        print('f_Ci', controller.f_Ci[t])
 
 class Process_EQ6(DivaSensorProcessor):
     def process_sensor_channel(self, controller, kearney_name, t):
@@ -85,37 +100,28 @@ class Process_EQ7(DivaSensorProcessor):
 
 
 #Controller
-class Controller(PlotMixin):
+class Controller(Control_System_simpleDIVA, PlotMixin):
     def __init__(self, sensor_processor: DivaSensorProcessor, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.sensor_processor = sensor_processor
 
-    def process_global(self, t, channels):
+    def process_global(self, t, channels=None):
          # Calculate control integral using cumulative sum instead of quad
         control_integral = np.sum(self.f_Ci[:t+1]) * self.dt
+        print('control_integral', control_integral)
         self.f[t+1] = self.f_Target + control_integral
 
     def simulate(self, kearney_name):
         """
         Simple DIVA implementation
         """
-        EQ5_names = ['D1', 'D2']
-        EQ6_names = ['D5', 'D6', 'D7', 'D8', 'D9', 'D10']
-        EQ7_names = ['D11', 'D12', 'D13', 'D14', 'D15']
-        if kearney_name in EQ5_names:
-            process_sensor = Process_EQ5()
-        elif kearney_name in EQ6_names:
-            process_sensor = Process_EQ6()
-        elif kearney_name in EQ7_names:
-            process_sensor = Process_EQ7()
-        else:
-            print(f'No equation found for {kearney_name}')
-            return
-        
         
         for t in range(0, self.time_length-1-(max(self.tau_A, self.tau_S))):
-            process_sensor.process_sensor_channel(self, kearney_name, t)
+            print('t', t)
+            self.sensor_processor.process_sensor_channel(self, kearney_name, t)
             self.process_global(t)
+        
+        print('****PROCESSING DONE****')
 
 
         self.notation_conversion()

@@ -6,7 +6,7 @@ from controllers.implementations import Controller, AbsoluteSensorProcessor, Rel
 from utils.analysis import AnalysisMixin
 from visualization.plotting import PlotMixin
 from utils.pitchpert_dataprep import truncate_data
-from controllers.simpleDIVAtest import simpleDIVAtest
+from controllers.simpleDIVAtest import Controller as DIVAController
 
 def get_perturbation_event_times(file_path, units='cents', epsilon=1e-10):
     df = pd.read_csv(file_path)
@@ -89,7 +89,8 @@ class PitchPertCalibrator:
             MSE between simulation and target response
         """
         # Unpack parameters
-        if self.sensor_processor == DivaSensorProcessor():
+        
+        if self.sensor_processor == None:
             print('Diva sensor processor')
             tau_A = params[0]
             tau_S = params[1]
@@ -102,8 +103,8 @@ class PitchPertCalibrator:
             alpha_Av = params[8]
             alpha_Sv = params[9]
 
-            system = simpleDIVAtest(self.T_sim, self.params_obj.dt, self.pert_signal.signal, self.pert_signal.start_ramp_up, self.target_response, alpha_A, alpha_S, alpha_Av, alpha_Sv, tau_A, tau_S)
-            system.simpleDIVAimplementation()
+            system = DIVAController(self.T_sim, self.params_obj.dt, self.pert_signal.signal, self.pert_signal.start_ramp_up, self.target_response, alpha_A, alpha_S, alpha_Av, alpha_Sv, tau_A, tau_S)
+            system.simulate(self.params_obj.kearney_name)
 
 
         else:

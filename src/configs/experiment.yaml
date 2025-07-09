@@ -7,6 +7,7 @@ data:
 simulation:
   duration: 10.8  # Duration of each trial in seconds
   sec_per_step: 0.005
+  system_type: 'DIVA' # 'DIVA' or 'Template'
   ref_type: 'null'  # 'sin' or 'null'
 
 perturbation:

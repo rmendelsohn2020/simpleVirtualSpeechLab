@@ -91,42 +91,40 @@ def get_params():
     ramp_up_duration = config_expt['perturbation']['ramp']['up_duration']
     ramp_down_duration = config_expt['perturbation']['ramp']['down_duration']
 
-    actuator_delay = config_expt['starting_params']['delays']['actuator']
-    sensor_delay_aud = config_expt['starting_params']['delays']['sensor']['auditory']
-    sensor_delay_som = config_expt['starting_params']['delays']['sensor']['somatosensory']
+    system_type = config_expt['simulation']['system_type']
 
-    A_init = np.array(config_expt['starting_params']['system']['A'])
-    B_init = np.array(config_expt['starting_params']['system']['B'])
-    C_aud_init = np.array(config_expt['starting_params']['system']['C_aud'])
-    C_som_init = np.array(config_expt['starting_params']['system']['C_som'])
-    K_aud_init = config_expt['starting_params']['system']['K_aud']
-    L_aud_init = config_expt['starting_params']['system']['L_aud']
-    Kf_aud_init = config_expt['starting_params']['system']['Kf_aud']
-    K_som_init = config_expt['starting_params']['system']['K_som']
-    L_som_init = config_expt['starting_params']['system']['L_som']
-    Kf_som_init = config_expt['starting_params']['system']['Kf_som']
+    if system_type == 'Template':
+        actuator_delay = config_expt['starting_params']['delays']['actuator']
+        sensor_delay_aud = config_expt['starting_params']['delays']['sensor']['auditory']
+        sensor_delay_som = config_expt['starting_params']['delays']['sensor']['somatosensory']
 
-    # tune_Rs = config_expt['starting_params']['system']['tune_Rs']
-    # tune_RNs = config_expt['starting_params']['system']['tune_RNs']
+        A_init = np.array(config_expt['starting_params']['system']['A'])
+        B_init = np.array(config_expt['starting_params']['system']['B'])
+        C_aud_init = np.array(config_expt['starting_params']['system']['C_aud'])
+        C_som_init = np.array(config_expt['starting_params']['system']['C_som'])
+        K_aud_init = config_expt['starting_params']['system']['K_aud']
+        L_aud_init = config_expt['starting_params']['system']['L_aud']
+        Kf_aud_init = config_expt['starting_params']['system']['Kf_aud']
+        K_som_init = config_expt['starting_params']['system']['K_som']
+        L_som_init = config_expt['starting_params']['system']['L_som']
+        Kf_som_init = config_expt['starting_params']['system']['Kf_som']
 
-    return type('ParamsObject', (), {'trace_type': trace_type, 'participant_ID': participant_ID, 'trial_ID': trial_ID, 'duration': duration, 'dt': dt, 'ref_type': ref_type, 'pert_type': pert_type, 'pert_mag': pert_mag, 'pert_onset': pert_onset, 'pert_duration': pert_duration, 'ramp_up_duration': ramp_up_duration, 'ramp_down_duration': ramp_down_duration, 'actuator_delay': actuator_delay, 'sensor_delay_aud': sensor_delay_aud, 'sensor_delay_som': sensor_delay_som, 'A_init': A_init, 'B_init': B_init, 'C_aud_init': C_aud_init, 'C_som_init': C_som_init, 'K_aud_init': K_aud_init, 'L_aud_init': L_aud_init, 'Kf_aud_init': Kf_aud_init, 'K_som_init': K_som_init, 'L_som_init': L_som_init, 'Kf_som_init': Kf_som_init})
+        # tune_Rs = config_expt['starting_params']['system']['tune_Rs']
+        # tune_RNs = config_expt['starting_params']['system']['tune_RNs']
 
-def get_diva_params():
-    with open("src/configs/experiment.yaml", "r") as f:
-        config_expt = yaml.safe_load(f)
+        return type('ParamsObject', (), {'trace_type': trace_type, 'participant_ID': participant_ID, 'trial_ID': trial_ID, 'duration': duration, 'dt': dt, 'system_type': system_type, 'ref_type': ref_type, 'pert_type': pert_type, 'pert_mag': pert_mag, 'pert_onset': pert_onset, 'pert_duration': pert_duration, 'ramp_up_duration': ramp_up_duration, 'ramp_down_duration': ramp_down_duration, 'actuator_delay': actuator_delay, 'sensor_delay_aud': sensor_delay_aud, 'sensor_delay_som': sensor_delay_som, 'A_init': A_init, 'B_init': B_init, 'C_aud_init': C_aud_init, 'C_som_init': C_som_init, 'K_aud_init': K_aud_init, 'L_aud_init': L_aud_init, 'Kf_aud_init': Kf_aud_init, 'K_som_init': K_som_init, 'L_som_init': L_som_init, 'Kf_som_init': Kf_som_init})
+    elif system_type == 'DIVA':
+        kearney_name = config_expt['diva_starting_params']['kearney_name']
+        tau_A_init = config_expt['diva_starting_params']['delays']['tau_A'] #D1-D15
+        tau_S_init = config_expt['diva_starting_params']['delays']['tau_S'] #D2,
+        tau_As_init = config_expt['diva_starting_params']['delays']['tau_As']
+        tau_Ss_init = config_expt['diva_starting_params']['delays']['tau_Ss']
 
-    kearney_name = config_expt['diva_starting_params']['kearney_name']
+        alpha_A_init = config_expt['diva_starting_params']['gains']['alpha_A'] #D1-D15
+        alpha_S_init = config_expt['diva_starting_params']['gains']['alpha_S'] #D1,D2,D5-D10,D12-D15
+        alpha_As_init = config_expt['diva_starting_params']['gains']['alpha_As']
+        alpha_Ss_init = config_expt['diva_starting_params']['gains']['alpha_Ss']
+        alpha_Av_init = config_expt['diva_starting_params']['gains']['alpha_Av']
+        alpha_Sv_init = config_expt['diva_starting_params']['gains']['alpha_Sv']
 
-    starting_tau_A = config_expt['diva_starting_params']['delays']['tau_A']
-    starting_tau_S = config_expt['diva_starting_params']['delays']['tau_S']
-    starting_tau_As = config_expt['diva_starting_params']['delays']['tau_As']
-    starting_tau_Ss = config_expt['diva_starting_params']['delays']['tau_Ss']
-
-    starting_alpha_A = config_expt['diva_starting_params']['gains']['alpha_A']
-    starting_alpha_S = config_expt['diva_starting_params']['gains']['alpha_S']
-    starting_alpha_As = config_expt['diva_starting_params']['gains']['alpha_As']
-    starting_alpha_Ss = config_expt['diva_starting_params']['gains']['alpha_Ss']
-    starting_alpha_Av = config_expt['diva_starting_params']['gains']['alpha_Av']
-    starting_alpha_Sv = config_expt['diva_starting_params']['gains']['alpha_Sv']
-
-    return type('DivaParamsObject', (), {'kearney_name': kearney_name, 'starting_tau_A': starting_tau_A, 'starting_tau_S': starting_tau_S, 'starting_tau_As': starting_tau_As, 'starting_tau_Ss': starting_tau_Ss, 'starting_alpha_A': starting_alpha_A, 'starting_alpha_S': starting_alpha_S, 'starting_alpha_As': starting_alpha_As, 'starting_alpha_Ss': starting_alpha_Ss, 'starting_alpha_Av': starting_alpha_Av, 'starting_alpha_Sv': starting_alpha_Sv})
+        return type('DivaParamsObject', (), {'trace_type': trace_type, 'participant_ID': participant_ID, 'trial_ID': trial_ID, 'duration': duration, 'dt': dt, 'system_type': system_type, 'ref_type': ref_type, 'pert_type': pert_type, 'pert_mag': pert_mag, 'pert_onset': pert_onset, 'pert_duration': pert_duration, 'ramp_up_duration': ramp_up_duration, 'ramp_down_duration': ramp_down_duration, 'kearney_name': kearney_name, 'tau_A_init': tau_A_init, 'tau_S_init': tau_S_init, 'tau_As_init': tau_As_init, 'tau_Ss_init': tau_Ss_init, 'alpha_A_init': alpha_A_init, 'alpha_S_init': alpha_S_init, 'alpha_As_init': alpha_As_init, 'alpha_Ss_init': alpha_Ss_init, 'alpha_Av_init': alpha_Av_init, 'alpha_Sv_init': alpha_Sv_init})

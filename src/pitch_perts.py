@@ -12,8 +12,8 @@ from utils.signal_synth import RampedStep1D
 from utils.get_configs import get_paths, get_params
 from utils.pitchpert_calibration import get_perturbation_event_times, PitchPertCalibrator
 from visualization.readouts import readout_optimized_params
-from controllers.simpleDIVAtest import simpleDIVAtest
-
+from controllers.simpleDIVAtest import Controller as DIVAController
+from controllers.simpleDIVAtest import get_sensor_processor
 # Get experiment parameters
 path_obj = get_paths()
 #Save Paths
@@ -23,11 +23,23 @@ fig_save_path = path_obj.fig_save_path
 data_path = path_obj.data_path
 print('data_path', data_path)
 
+calibrate_opt = 'DIVA'
+
 params_obj = get_params()
+if params_obj.system_type == 'DIVA':
+    system_choice = 'DIVA'
+    units = 'multiplier'
+    sensor_processor = get_sensor_processor(params_obj.kearney_name)
+elif params_obj.system_type == 'Template':
+    system_choice = 'Relative'
+    units = 'cents'
+    sensor_processor = RelativeSensorProcessor()
+else:
+    print('No system type specified')
+    sensor_processor = None
 
 ###Define Perturbation Experiment Parameters
 T_sim = np.arange(0,params_obj.duration, params_obj.dt)
-units = 'multiplier'
 ###Load Data
 
 #Truncation to match Smith et al. 2020 data and plots
@@ -37,16 +49,12 @@ truncate_end = params_obj.pert_onset + 1.0
 
 #Interpolate the calibration data
 timeseries = truncate_data(T_sim, None, truncate_start, truncate_end)[0]
-# if os.path.exists(os.path.join(data_save_path,'data_cents.csv')):
-#     data_path_interp = os.path.join(data_save_path,'data_cents.csv')
-#     print('WARNING: Using existing data_cents.csv file')
-# else:  
-#     data_path_interp = data_prep(data_path, timeseries, data_save_path, convert_opt='multiplier2cents', pert_onset=params_obj.pert_onset)
+
 if units == 'multiplier':
     convert_opt = 'multiplier'
 elif units == 'cents':
     convert_opt='multiplier2cents'
-data_path_interp = data_prep(data_path, timeseries, data_save_path, convert_opt=convert_opt, pert_onset=params_obj.pert_onset, showplt=True)
+data_path_interp = data_prep(data_path, timeseries, data_save_path, convert_opt=convert_opt, pert_onset=params_obj.pert_onset, showplt=False)
 # Load calibration data
 calibration_data = np.loadtxt(data_path_interp, delimiter=',', skiprows=1)
 target_response = calibration_data[:, params_obj.trial_ID+2]  # Assuming third column is first participant's target response
@@ -65,24 +73,10 @@ pert_signal = RampedStep1D(params_obj.duration, dt=params_obj.dt, tstart_step=pi
                                             dist_duration=params_obj.pert_duration, ramp_up_duration=None,
                                             ramp_down_duration=params_obj.ramp_down_duration,
                                         sig_label='Step pertubation', units=units)
-plt.plot(T_sim, pert_signal.signal)
-plt.show()
 
 # plt.plot(T_sim, pert_signal.signal)
 # plt.show()
 
-# #Plot pitch pert simulation v data with initial params
-# system = Controller(sensor_processor=RelativeSensorProcessor(), input_A=params_obj.A_init, input_B=params_obj.B_init, input_C=params_obj.C_aud_init, ref_type=params_obj.ref_type, K_vals=[params_obj.K_aud_init, params_obj.K_som_init], L_vals=[params_obj.L_aud_init, params_obj.L_som_init], timeseries=T_sim)    
-
-# timeseries_truncated, system_response_truncated = truncate_data(T_sim, system.x, truncate_start, truncate_end)
-
-# aud_pert_truncated = truncate_data(T_sim, system.v_aud, truncate_start, truncate_end)[1]
-
-# system.simulate_with_2sensors(delta_t_s_aud=params_obj.sensor_delay_aud, delta_t_s_som=params_obj.sensor_delay_som, delta_t_a=params_obj.actuator_delay)
-# system.plot_data_overlay('abs2sens', target_response, pitch_pert_data, time_trunc=timeseries_truncated, resp_trunc=system_response_truncated, pitch_pert_truncated=aud_pert_truncated, fig_save_path=fig_save_path)
-
-calibrate_opt = None
-system_choice = 'DIVA'
 
 if calibrate_opt == 'Standard':
 # Create a calibrator instance
@@ -93,7 +87,7 @@ if calibrate_opt == 'Standard':
         T_sim=T_sim,
         truncate_start=truncate_start,
         truncate_end=truncate_end,
-        sensor_processor=RelativeSensorProcessor()
+        sensor_processor=sensor_processor
     )
 
     # Run the calibration
@@ -105,11 +99,7 @@ if calibrate_opt == 'Standard':
 
     print('mse_history', mse_history)
 
-    sensor_delay_aud = int(cal_params.sensor_delay_aud)
-    sensor_delay_som = int(cal_params.sensor_delay_som)
-    actuator_delay = int(cal_params.actuator_delay)
-
-    readout_optimized_params(cal_params, sensor_delay_aud, sensor_delay_som, actuator_delay)
+    readout_optimized_params(cal_params)
 elif calibrate_opt == 'Particle Swarm':
     calibrator = PitchPertCalibrator(
         params_obj=params_obj,
@@ -140,6 +130,9 @@ elif calibrate_opt == 'Particle Swarm':
 
     # Save optimized parameters to the timestamped folder
     readout_optimized_params(cal_params, sensor_delay_aud, sensor_delay_som, actuator_delay, output_dir=run_dir)
+elif calibrate_opt == 'DIVA':
+    cal_params = params_obj
+    print('DIVA calibration not yet implemented')
 else:
     cal_params = params_obj
     sensor_delay_aud = int(cal_params.sensor_delay_aud)
@@ -152,22 +145,27 @@ if system_choice == 'Relative':
     system = Controller(sensor_processor=RelativeSensorProcessor(), input_A=cal_params.A_init, input_B=cal_params.B_init, input_C=cal_params.C_aud_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], K_vals=[cal_params.K_aud_init, cal_params.K_som_init], L_vals=[cal_params.L_aud_init, cal_params.L_som_init], Kf_vals=[cal_params.Kf_aud_init, cal_params.Kf_som_init], timeseries=T_sim)    
     #Run simulation with calibrated params (Calculate Gains)
     #system = Controller(sensor_processor=RelativeSensorProcessor(), input_A=cal_params.A_init, input_B=cal_params.B_init, input_C=cal_params.C_aud_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], timeseries=T_sim)    
-    system.simulate_with_2sensors(delta_t_s_aud=sensor_delay_aud, delta_t_s_som=sensor_delay_som, delta_t_a=actuator_delay)
+    system.simulate_with_2sensors(delta_t_s_aud=cal_params.sensor_delay_aud, delta_t_s_som=cal_params.sensor_delay_som, delta_t_a=cal_params.actuator_delay)
     #system.simulate_with_1sensor(delta_t_s=sensor_delay_aud, delta_t_a=actuator_delay)
 elif system_choice == 'Absolute':
     system = Controller(sensor_processor=AbsoluteSensorProcessor(), input_A=cal_params.A_init, input_B=cal_params.B_init, input_C=cal_params.C_aud_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], K_vals=[cal_params.K_aud_init, cal_params.K_som_init], L_vals=[cal_params.L_aud_init, cal_params.L_som_init], Kf_vals=[cal_params.Kf_aud_init, cal_params.Kf_som_init], timeseries=T_sim)    
-    system.simulate_with_2sensors(delta_t_s_aud=sensor_delay_aud, delta_t_s_som=sensor_delay_som, delta_t_a=actuator_delay)
+    system.simulate_with_2sensors(delta_t_s_aud=cal_params.sensor_delay_aud, delta_t_s_som=cal_params.sensor_delay_som, delta_t_a=cal_params.actuator_delay)
 elif system_choice == 'DIVA':
-    alpha_A = 2.0
-    alpha_S = 3.0
-    alpha_Av = None
-    alpha_Sv = None
-    tau_A = 0.128
-    tau_A_int = round(tau_A/params_obj.dt)
-    tau_S = 0
+    # alpha_A = 2.0
+    # alpha_S = 3.0
+    # alpha_Av = None
+    # alpha_Sv = None
+    # tau_A = 0.128
+    # tau_A_int = round(cal_params.tau_A_init/params_obj.dt)
+    # tau_S_int = round(cal_params.tau_S_init/params_obj.dt)
+    # tau_As_int = round(cal_params.tau_As_init/params_obj.dt)
+    # tau_Ss_int = round(cal_params.tau_Ss_init/params_obj.dt)
+    # tau_S = 0
 
-    system = simpleDIVAtest(T_sim, params_obj.dt, pert_signal.signal, pert_signal.start_ramp_up, target_response, alpha_A, alpha_S, alpha_Av, alpha_Sv, tau_A_int, tau_S)
-    system.simpleDIVAimplementation()
+    # Get the appropriate sensor processor for the DIVA controller
+    sensor_processor = get_sensor_processor(cal_params.kearney_name)
+    system = DIVAController(sensor_processor, T_sim, params_obj.dt, pert_signal.signal, pert_signal.start_ramp_up, target_response, cal_params.alpha_A_init, cal_params.alpha_S_init, cal_params.alpha_Av_init, cal_params.alpha_Sv_init, cal_params.tau_A_init, cal_params.tau_S_init, cal_params.tau_As_init, cal_params.tau_Ss_init)
+    system.simulate(cal_params.kearney_name)
 
     print('system.timeseries', system.timeseries.shape)
     print('system.f', system.f.shape)
