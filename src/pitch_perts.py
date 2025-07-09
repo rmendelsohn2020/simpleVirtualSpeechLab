@@ -23,7 +23,7 @@ fig_save_path = path_obj.fig_save_path
 data_path = path_obj.data_path
 print('data_path', data_path)
 
-calibrate_opt = 'DIVA'
+calibrate_opt = 'Particle Swarm'
 
 params_obj = get_params()
 if params_obj.system_type == 'DIVA':
@@ -99,7 +99,11 @@ if calibrate_opt == 'Standard':
 
     print('mse_history', mse_history)
 
-    readout_optimized_params(cal_params)
+    sensor_delay_aud = int(cal_params.sensor_delay_aud)
+    sensor_delay_som = int(cal_params.sensor_delay_som)
+    actuator_delay = int(cal_params.actuator_delay)
+
+    readout_optimized_params(cal_params, sensor_delay_aud, sensor_delay_som, actuator_delay)
 elif calibrate_opt == 'Particle Swarm':
     calibrator = PitchPertCalibrator(
         params_obj=params_obj,
@@ -108,12 +112,12 @@ elif calibrate_opt == 'Particle Swarm':
         T_sim=T_sim,
         truncate_start=truncate_start,
         truncate_end=truncate_end,
-        sensor_processor=RelativeSensorProcessor()
+        sensor_processor=sensor_processor
     )
 
     cal_params, mse_history, run_dir = calibrator.particle_swarm_calibrate(
-        num_particles=1000,
-        max_iters=100,
+        num_particles=10,
+        max_iters=2,
         convergence_tol=0.01,
         runs=1,
         log_interval=20,  # Log every 20 iterations
@@ -135,9 +139,11 @@ elif calibrate_opt == 'DIVA':
     print('DIVA calibration not yet implemented')
 else:
     cal_params = params_obj
+
     sensor_delay_aud = int(cal_params.sensor_delay_aud)
     sensor_delay_som = int(cal_params.sensor_delay_som)
     actuator_delay = int(cal_params.actuator_delay)
+
 
 
 if system_choice == 'Relative':
@@ -145,11 +151,11 @@ if system_choice == 'Relative':
     system = Controller(sensor_processor=RelativeSensorProcessor(), input_A=cal_params.A_init, input_B=cal_params.B_init, input_C=cal_params.C_aud_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], K_vals=[cal_params.K_aud_init, cal_params.K_som_init], L_vals=[cal_params.L_aud_init, cal_params.L_som_init], Kf_vals=[cal_params.Kf_aud_init, cal_params.Kf_som_init], timeseries=T_sim)    
     #Run simulation with calibrated params (Calculate Gains)
     #system = Controller(sensor_processor=RelativeSensorProcessor(), input_A=cal_params.A_init, input_B=cal_params.B_init, input_C=cal_params.C_aud_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], timeseries=T_sim)    
-    system.simulate_with_2sensors(delta_t_s_aud=cal_params.sensor_delay_aud, delta_t_s_som=cal_params.sensor_delay_som, delta_t_a=cal_params.actuator_delay)
+    system.simulate_with_2sensors(delta_t_s_aud=sensor_delay_aud, delta_t_s_som=sensor_delay_som, delta_t_a=actuator_delay)
     #system.simulate_with_1sensor(delta_t_s=sensor_delay_aud, delta_t_a=actuator_delay)
 elif system_choice == 'Absolute':
     system = Controller(sensor_processor=AbsoluteSensorProcessor(), input_A=cal_params.A_init, input_B=cal_params.B_init, input_C=cal_params.C_aud_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], K_vals=[cal_params.K_aud_init, cal_params.K_som_init], L_vals=[cal_params.L_aud_init, cal_params.L_som_init], Kf_vals=[cal_params.Kf_aud_init, cal_params.Kf_som_init], timeseries=T_sim)    
-    system.simulate_with_2sensors(delta_t_s_aud=cal_params.sensor_delay_aud, delta_t_s_som=cal_params.sensor_delay_som, delta_t_a=cal_params.actuator_delay)
+    system.simulate_with_2sensors(delta_t_s_aud=sensor_delay_aud, delta_t_s_som=sensor_delay_som, delta_t_a=actuator_delay)
 elif system_choice == 'DIVA':
     # alpha_A = 2.0
     # alpha_S = 3.0

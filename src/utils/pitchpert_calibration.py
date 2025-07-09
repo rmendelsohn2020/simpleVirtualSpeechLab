@@ -6,7 +6,7 @@ from controllers.implementations import Controller, AbsoluteSensorProcessor, Rel
 from utils.analysis import AnalysisMixin
 from visualization.plotting import PlotMixin
 from utils.pitchpert_dataprep import truncate_data
-from controllers.simpleDIVAtest import Controller as DIVAController
+from controllers.simpleDIVAtest import Controller as DIVAController, Process_EQ5, Process_EQ6, Process_EQ7
 
 def get_perturbation_event_times(file_path, units='cents', epsilon=1e-10):
     df = pd.read_csv(file_path)
@@ -90,7 +90,7 @@ class PitchPertCalibrator:
         """
         # Unpack parameters
         
-        if self.sensor_processor == None:
+        if self.params_obj.system_type == 'DIVA':
             print('Diva sensor processor')
             tau_A = params[0]
             tau_S = params[1]
@@ -103,7 +103,7 @@ class PitchPertCalibrator:
             alpha_Av = params[8]
             alpha_Sv = params[9]
 
-            system = DIVAController(self.T_sim, self.params_obj.dt, self.pert_signal.signal, self.pert_signal.start_ramp_up, self.target_response, alpha_A, alpha_S, alpha_Av, alpha_Sv, tau_A, tau_S)
+            system = DIVAController(self.sensor_processor, self.T_sim, self.params_obj.dt, self.pert_signal.signal, self.pert_signal.start_ramp_up, self.target_response, alpha_A, alpha_S, alpha_Av, alpha_Sv, tau_A, tau_S)
             system.simulate(self.params_obj.kearney_name)
 
 
@@ -275,8 +275,8 @@ class PitchPertCalibrator:
             if print_to_console:
                 print(log_entry)
         
-        # Initialize tracking variables
-        bounds = np.array([
+        # Initialize tracking variables 
+        bounds = np.array([ # TODO: Make swapable for different systems
             (1e-6, 1.5),   # A
             (1e-6, 2.5),   # B
             (1e-6, 4.0),   # C_aud

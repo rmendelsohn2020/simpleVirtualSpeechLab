@@ -3,6 +3,7 @@ import scipy.integrate as integrate
 from utils.pitchpert_dataprep import calculate_distortion_in_hz
 from visualization.plotting import PlotMixin
 from abc import ABC, abstractmethod
+from utils.analysis import AnalysisMixin
 
 #Base
 class Control_System_simpleDIVA(PlotMixin):
@@ -100,7 +101,7 @@ class Process_EQ7(DivaSensorProcessor):
 
 
 #Controller
-class Controller(Control_System_simpleDIVA, PlotMixin):
+class Controller(Control_System_simpleDIVA, PlotMixin, AnalysisMixin):
     def __init__(self, sensor_processor: DivaSensorProcessor, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.sensor_processor = sensor_processor

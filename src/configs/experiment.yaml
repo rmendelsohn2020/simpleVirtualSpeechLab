@@ -21,10 +21,10 @@ perturbation:
 
 starting_params:
   delays:
-    actuator: 2
+    actuator: 1
     sensor:
-      auditory: 20
-      somatosensory: 3
+      auditory: 11
+      somatosensory: 2
   system:
     A: [0.8]
     B: [1.1]
