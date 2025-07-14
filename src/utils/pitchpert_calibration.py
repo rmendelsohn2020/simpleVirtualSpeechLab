@@ -2,11 +2,20 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
+import os
+import json
+from datetime import datetime
+import random
+from controllers.base import ControlSystem
 from controllers.implementations import Controller, AbsoluteSensorProcessor, RelativeSensorProcessor
 from utils.analysis import AnalysisMixin
 from visualization.plotting import PlotMixin
-from utils.pitchpert_dataprep import truncate_data
-from controllers.simpleDIVAtest import Controller as DIVAController, Process_EQ5, Process_EQ6, Process_EQ7
+from utils.pitchpert_dataprep import data_prep, truncate_data
+from utils.signal_synth import RampedStep1D
+from utils.get_configs import get_paths, get_params
+from controllers.simpleDIVAtest import Controller as DIVAController
+from controllers.simpleDIVAtest import get_sensor_processor
+from visualization.readouts import get_params_for_implementation
 
 def get_perturbation_event_times(file_path, units='cents', epsilon=1e-10):
     df = pd.read_csv(file_path)
@@ -55,6 +64,165 @@ def get_perturbation_event_times(file_path, units='cents', epsilon=1e-10):
 
     return time_at_first_pert, time_at_full_pert, full_pert_val
 
+
+def get_diva_parameter_config(kearney_name):
+    """
+    Get parameter configuration for a specific DIVA implementation.
+    
+    Args:
+        kearney_name: Implementation name (e.g., 'D1', 'D2', etc.)
+    
+    Returns:
+        Dictionary with parameter names, bounds, and initial values
+    """
+    # Define parameter configurations for different DIVA implementations
+    param_configs = {
+        'D1': {
+            'params': [
+                ('tau_A', 'tau_A'),
+                ('tau_S', 'tau_S'), 
+                ('tau_As', 'tau_As'),
+                ('tau_Ss', 'tau_Ss'),
+                ('alpha_A', 'alpha_A_init'),
+                ('alpha_Av', 'alpha_Av_init'),
+                ('alpha_Sv', 'alpha_Sv_init'),
+            ],
+            'bounds': [
+                (0.0, 20.0),      # tau_A
+                (0.0, 20.0),      # tau_S
+                (0.0, 20.0),      # tau_As
+                (0.0, 20.0),      # tau_Ss
+                (1e-6, 5),        # alpha_A
+                (1e-6, 1.0),      # alpha_Av
+                (1e-6, 1.0),      # alpha_Sv
+            ]
+        },
+        'D2': {
+            'params': [
+                ('tau_A', 'tau_A'),
+                ('tau_S', 'tau_S'),
+                ('tau_As', 'tau_As'),
+                ('tau_Ss', 'tau_Ss'),
+                ('alpha_A', 'alpha_A_init'),
+                ('alpha_S', 'alpha_S_init'),
+                ('alpha_Av', 'alpha_Av_init'),
+                ('alpha_Sv', 'alpha_Sv_init'),
+            ],
+            'bounds': [
+                (0.0, 20.0),      # tau_A
+                (0.0, 20.0),      # tau_S
+                (0.0, 20.0),      # tau_As
+                (0.0, 20.0),      # tau_Ss
+                (1e-6, 5),        # alpha_A
+                (1e-6, 5),        # alpha_S
+                (1e-6, 1.0),      # alpha_Av
+                (1e-6, 1.0),      # alpha_Sv
+            ]
+        },
+        # Add more implementations as needed
+        'D5': {
+            'params': [
+                ('tau_A', 'tau_A'),
+                ('tau_S', 'tau_S'),
+                ('tau_As', 'tau_As'),
+                ('tau_Ss', 'tau_Ss'),
+                ('alpha_A', 'alpha_A_init'),
+                ('alpha_S', 'alpha_S_init'),
+                ('alpha_Av', 'alpha_Av_init'),
+                ('alpha_Sv', 'alpha_Sv_init'),
+            ],
+            'bounds': [
+                (0.0, 20.0),      # tau_A
+                (0.0, 20.0),      # tau_S
+                (0.0, 20.0),      # tau_As
+                (0.0, 20.0),      # tau_Ss
+                (1e-6, 5),        # alpha_A
+                (1e-6, 5),        # alpha_S
+                (1e-6, 1.0),      # alpha_Av
+                (1e-6, 1.0),      # alpha_Sv
+            ]
+        }
+    }
+    
+    # Default configuration if specific implementation not found
+    default_config = {
+        'params': [
+            ('tau_A', 'tau_A'),
+            ('tau_S', 'tau_S'),
+            ('tau_As', 'tau_As'),
+            ('tau_Ss', 'tau_Ss'),
+            ('alpha_A', 'alpha_A_init'),
+            ('alpha_S', 'alpha_S_init'),
+            ('alpha_Av', 'alpha_Av_init'),
+            ('alpha_Sv', 'alpha_Sv_init'),
+        ],
+        'bounds': [
+            (0.0, 20.0),      # tau_A
+            (0.0, 20.0),      # tau_S
+            (0.0, 20.0),      # tau_As
+            (0.0, 20.0),      # tau_Ss
+            (1e-6, 5),        # alpha_A
+            (1e-6, 5),        # alpha_S
+            (1e-6, 1.0),      # alpha_Av
+            (1e-6, 1.0),      # alpha_Sv
+        ]
+    }
+    
+    return param_configs.get(kearney_name, default_config)
+
+def get_parameter_bounds_and_x0(params_obj):
+    """
+    Get parameter bounds and initial values based on system type and implementation.
+    
+    Args:
+        params_obj: Parameters object with system_type and kearney_name
+    
+    Returns:
+        Tuple of (bounds, x0) for optimization
+    """
+    if params_obj.system_type == 'DIVA':
+        config = get_diva_parameter_config(params_obj.kearney_name)
+        bounds = config['bounds']
+        x0 = []
+        
+        for param_name, attr_name in config['params']:
+            if hasattr(params_obj, attr_name):
+                x0.append(getattr(params_obj, attr_name))
+            else:
+                # Default value if attribute doesn't exist
+                x0.append(1.0)
+        
+        return bounds, x0
+    else:
+        # Template system - use existing logic
+        bounds = [
+            (1e-6, 2.5),      # A
+            (1e-6, 2.5),      # B
+            (1e-6, 5.0),      # C_aud
+            (1e-6, 5.0),      # C_som
+            (1e-6, 1.0),      # K_aud
+            (1e-6, 1.0),      # L_aud
+            (1e-6, 1.0),      # K_som
+            (1e-6, 1.0),      # L_som
+            (0.0, 20.0),      # sensor_delay_aud
+            (0.0, 20.0),      # sensor_delay_som
+            (0.0, 20.0)       # actuator_delay
+        ]
+        x0 = [
+            params_obj.A_init[0],
+            params_obj.B_init[0],
+            params_obj.C_aud_init[0],
+            params_obj.C_som_init[0],
+            params_obj.K_aud_init,
+            params_obj.L_aud_init,
+            params_obj.K_som_init,
+            params_obj.L_som_init,
+            params_obj.sensor_delay_aud,
+            params_obj.sensor_delay_som,
+            params_obj.actuator_delay
+        ]
+        return bounds, x0
+
 class PitchPertCalibrator:
     def __init__(self, params_obj, target_response, pert_signal, T_sim, truncate_start, truncate_end, sensor_processor=AbsoluteSensorProcessor()):
         """
@@ -78,6 +246,16 @@ class PitchPertCalibrator:
         self.sensor_processor = sensor_processor
         self.mse_history = []
 
+    def get_bounds_and_x0(self, return_opt='bounds and x0'):
+            bounds, x0 = get_parameter_bounds_and_x0(self.params_obj)
+            
+            if return_opt == 'bounds and x0':
+                return bounds, x0
+            elif return_opt == 'bounds':
+                return bounds
+            elif return_opt == 'x0':
+                return x0
+        
     def objective_function(self, params):
         """
         Objective function for parameter optimization.
@@ -88,26 +266,32 @@ class PitchPertCalibrator:
         Returns:
             MSE between simulation and target response
         """
-        # Unpack parameters
-        
         if self.params_obj.system_type == 'DIVA':
             print('Diva sensor processor')
-            tau_A = params[0]
-            tau_S = params[1]
-            tau_As = params[2]
-            tau_Ss = params[3]
-            alpha_A = params[4]
-            alpha_S = params[5]
-            alpha_As = params[6]
-            alpha_Ss = params[7]
-            alpha_Av = params[8]
-            alpha_Sv = params[9]
+            
+            # Get parameter configuration for this implementation
+            config = get_diva_parameter_config(self.params_obj.kearney_name)
+            param_dict = {}
+            
+            # Unpack parameters based on the configuration
+            for i, (param_name, attr_name) in enumerate(config['params']):
+                param_dict[param_name] = params[i]
+            
+            # Extract parameters with defaults for missing ones
+            tau_A = param_dict.get('tau_A', 1.0)
+            tau_S = param_dict.get('tau_S', 1.0)
+            tau_As = param_dict.get('tau_As', 1.0)
+            tau_Ss = param_dict.get('tau_Ss', 1.0)
+            alpha_A = param_dict.get('alpha_A', 1.0)
+            alpha_S = param_dict.get('alpha_S', 0.0)  # Default to 0 for implementations that don't use it
+            alpha_Av = param_dict.get('alpha_Av', 1.0)
+            alpha_Sv = param_dict.get('alpha_Sv', 1.0)
 
             system = DIVAController(self.sensor_processor, self.T_sim, self.params_obj.dt, self.pert_signal.signal, self.pert_signal.start_ramp_up, self.target_response, alpha_A, alpha_S, alpha_Av, alpha_Sv, tau_A, tau_S)
             system.simulate(self.params_obj.kearney_name)
 
-
         else:
+            # Template system - use existing logic
             A = np.array([params[0]])
             B = np.array([params[1]])
             C_aud = np.array([params[2]])
@@ -172,35 +356,7 @@ class PitchPertCalibrator:
         Returns:
             Optimized parameters object and optimization history
         """
-        # Define parameter bounds
-        bounds = [
-            (1e-6, 2.5),      # A
-            (1e-6, 2.5),      # B
-            (1e-6, 5.0),      # C_aud
-            (1e-6, 5.0),      # C_som
-            (1e-6, 1.0),      # K_aud
-            (1e-6, 1.0),      # L_aud
-            (1e-6, 1.0),      # K_som
-            (1e-6, 1.0),      # L_som
-            (0.0, 20.0),      # sensor_delay_aud
-            (0.0, 20.0),      # sensor_delay_som
-            (0.0, 20.0)       # actuator_delay
-        ]
-        
-        # Initial parameter values
-        x0 = [
-            self.params_obj.A_init[0],
-            self.params_obj.B_init[0],
-            self.params_obj.C_aud_init[0],
-            self.params_obj.C_som_init[0],
-            self.params_obj.K_aud_init,
-            self.params_obj.L_aud_init,
-            self.params_obj.K_som_init,
-            self.params_obj.L_som_init,
-            self.params_obj.sensor_delay_aud,
-            self.params_obj.sensor_delay_som,
-            self.params_obj.actuator_delay
-        ]
+        bounds, x0 = self.get_bounds_and_x0(return_opt='bounds and x0')
         
         # Reset MSE history
         self.mse_history = []
@@ -274,22 +430,12 @@ class PitchPertCalibrator:
                 f.write(log_entry + '\n')
             if print_to_console:
                 print(log_entry)
-        
+    
         # Initialize tracking variables 
-        bounds = np.array([ # TODO: Make swapable for different systems
-            (1e-6, 1.5),   # A
-            (1e-6, 2.5),   # B
-            (1e-6, 4.0),   # C_aud
-            (1e-6, 4.0),   # C_som
-            (1e-6, 1.0),   # K_aud TODO: Increase upper bound (10?)
-            (1e-6, 1.0),   # L_aud
-            (1e-6, 1.0),   # K_som
-            (1e-6, 1.0),   # L_som
-            (1.0, 20.0),   # sensor_delay_aud
-            (1.0, 20.0),   # sensor_delay_som
-            (1.0, 20.0),   # actuator_delay
-        ])
-        num_params = bounds.shape[0]
+        bounds, x0 = self.get_bounds_and_x0(return_opt='bounds and x0')
+        bounds = np.array(bounds)  # Convert to numpy array for indexing
+
+        num_params = len(bounds)
         best_overall_rmse = np.inf
         best_overall_params = None
         
@@ -495,6 +641,33 @@ class PitchPertCalibrator:
         return rand_ints.astype(float) / steps
         
     
+    def _get_parameter_dict(self, best_params):
+        """Convert parameter array to dictionary based on system type."""
+        if self.params_obj.system_type == 'DIVA':
+            # Get parameter configuration for this implementation
+            config = get_diva_parameter_config(self.params_obj.kearney_name)
+            param_dict = {}
+            
+            # Build parameter dictionary based on the configuration
+            for i, (param_name, attr_name) in enumerate(config['params']):
+                param_dict[param_name] = float(best_params[i])
+            
+            return param_dict
+        else:
+            return {
+                'A': float(best_params[0]),
+                'B': float(best_params[1]),
+                'C_aud': float(best_params[2]),
+                'C_som': float(best_params[3]),
+                'K_aud': float(best_params[4]),
+                'L_aud': float(best_params[5]),
+                'K_som': float(best_params[6]),
+                'L_som': float(best_params[7]),
+                'sensor_delay_aud': float(best_params[8]),
+                'sensor_delay_som': float(best_params[9]),
+                'actuator_delay': float(best_params[10])
+            }
+    
     def _save_intermediate_results(self, run_dir, run, iteration, best_params, best_rmse, particles, rmses, progress_data):
         """Save intermediate results during optimization."""
         import os
@@ -507,19 +680,7 @@ class PitchPertCalibrator:
                 'run': run + 1,
                 'iteration': iteration + 1,
                 'best_rmse': float(best_rmse),
-                'parameters': {
-                    'A': float(best_params[0]),
-                    'B': float(best_params[1]),
-                    'C_aud': float(best_params[2]),
-                    'C_som': float(best_params[3]),
-                    'K_aud': float(best_params[4]),
-                    'L_aud': float(best_params[5]),
-                    'K_som': float(best_params[6]),
-                    'L_som': float(best_params[7]),
-                    'sensor_delay_aud': float(best_params[8]),
-                    'sensor_delay_som': float(best_params[9]),
-                    'actuator_delay': float(best_params[10])
-                }
+                'parameters': self._get_parameter_dict(best_params)
             }
             with open(param_file, 'w') as f:
                 json.dump(param_data, f, indent=2)
@@ -597,19 +758,7 @@ class PitchPertCalibrator:
         param_data = {
             'optimization_completed': datetime.now().isoformat(),
             'best_rmse': float(best_rmse),
-            'parameters': {
-                'A': float(best_params[0]),
-                'B': float(best_params[1]),
-                'C_aud': float(best_params[2]),
-                'C_som': float(best_params[3]),
-                'K_aud': float(best_params[4]),
-                'L_aud': float(best_params[5]),
-                'K_som': float(best_params[6]),
-                'L_som': float(best_params[7]),
-                'sensor_delay_aud': float(best_params[8]),
-                'sensor_delay_som': float(best_params[9]),
-                'actuator_delay': float(best_params[10])
-            }
+            'parameters': self._get_parameter_dict(best_params)
         }
         with open(final_params_file, 'w') as f:
             json.dump(param_data, f, indent=2)
@@ -685,17 +834,10 @@ class PitchPertCalibrator:
             f.write(f"Optimization completed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write(f"Best overall RMSE: {best_rmse:.6f}\n\n")
             f.write("Best parameters:\n")
-            f.write(f"  A: {best_params[0]:.6f}\n")
-            f.write(f"  B: {best_params[1]:.6f}\n")
-            f.write(f"  C_aud: {best_params[2]:.6f}\n")
-            f.write(f"  C_som: {best_params[3]:.6f}\n")
-            f.write(f"  K_aud: {best_params[4]:.6f}\n")
-            f.write(f"  L_aud: {best_params[5]:.6f}\n")
-            f.write(f"  K_som: {best_params[6]:.6f}\n")
-            f.write(f"  L_som: {best_params[7]:.6f}\n")
-            f.write(f"  sensor_delay_aud: {best_params[8]:.6f}\n")
-            f.write(f"  sensor_delay_som: {best_params[9]:.6f}\n")
-            f.write(f"  actuator_delay: {best_params[10]:.6f}\n\n")
+            param_dict = self._get_parameter_dict(best_params)
+            for param_name, param_value in param_dict.items():
+                f.write(f"  {param_name}: {param_value:.6f}\n")
+            f.write("\n")
             
             f.write("Run summaries:\n")
             for summary in progress_data['run_summaries']:
@@ -709,23 +851,40 @@ class PitchPertCalibrator:
         Apply optimized parameters to the model.
         
         Args:
-            optimized_params: Array of optimized parameter values in the order:
-                [A, B, C_aud, C_som, K_aud, L_aud, K_som, L_som, 
-                 sensor_delay_aud, sensor_delay_som, actuator_delay]
+            optimized_params: Array of optimized parameter values
         """
         if optimized_params is not None:
-            # Update parameters object with optimized values
-            self.params_obj.A_init = np.array([optimized_params[0]])
-            self.params_obj.B_init = np.array([optimized_params[1]])
-            self.params_obj.C_aud_init = np.array([optimized_params[2]])
-            self.params_obj.C_som_init = np.array([optimized_params[3]])
-            self.params_obj.K_aud_init = optimized_params[4]
-            self.params_obj.L_aud_init = optimized_params[5]
-            self.params_obj.K_som_init = optimized_params[6]
-            self.params_obj.L_som_init = optimized_params[7]
-            self.params_obj.sensor_delay_aud = optimized_params[8]
-            self.params_obj.sensor_delay_som = optimized_params[9]
-            self.params_obj.actuator_delay = optimized_params[10]
+            if self.params_obj.system_type == 'DIVA':
+                # Get parameter configuration for this implementation
+                config = get_diva_parameter_config(self.params_obj.kearney_name)
+                
+                # Apply parameters based on the configuration
+                for i, (param_name, attr_name) in enumerate(config['params']):
+                    if hasattr(self.params_obj, attr_name):
+                        setattr(self.params_obj, attr_name, optimized_params[i])
+                    else:
+                        # Handle special cases where attribute name differs
+                        if attr_name == 'tau_A':
+                            self.params_obj.tau_A = optimized_params[i]
+                        elif attr_name == 'tau_S':
+                            self.params_obj.tau_S = optimized_params[i]
+                        elif attr_name == 'tau_As':
+                            self.params_obj.tau_As = optimized_params[i]
+                        elif attr_name == 'tau_Ss':
+                            self.params_obj.tau_Ss = optimized_params[i]
+            else:
+                # Template parameters: [A, B, C_aud, C_som, K_aud, L_aud, K_som, L_som, sensor_delay_aud, sensor_delay_som, actuator_delay]
+                self.params_obj.A_init = np.array([optimized_params[0]])
+                self.params_obj.B_init = np.array([optimized_params[1]])
+                self.params_obj.C_aud_init = np.array([optimized_params[2]])
+                self.params_obj.C_som_init = np.array([optimized_params[3]])
+                self.params_obj.K_aud_init = optimized_params[4]
+                self.params_obj.L_aud_init = optimized_params[5]
+                self.params_obj.K_som_init = optimized_params[6]
+                self.params_obj.L_som_init = optimized_params[7]
+                self.params_obj.sensor_delay_aud = optimized_params[8]
+                self.params_obj.sensor_delay_som = optimized_params[9]
+                self.params_obj.actuator_delay = optimized_params[10]
         
     def _apply_params_to_model(self, best_params):
         # Implementation of _apply_params_to_model method

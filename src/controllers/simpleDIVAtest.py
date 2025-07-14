@@ -23,8 +23,8 @@ class Control_System_simpleDIVA(PlotMixin):
             self.alpha_As = alpha_As
         if alpha_Ss is not None:
             self.alpha_Ss = alpha_Ss
-        self.tau_A = tau_A
-        self.tau_S = tau_S
+        self.tau_A_init = tau_A
+        self.tau_S_init = tau_S
 
         self.pert_onset = pert_onset
         #self.f_Target = self.calculate_f_target(target_response, self.pert_onset)
@@ -87,7 +87,6 @@ class Process_EQ5(DivaSensorProcessor):
             controller.f_Ci[t] = controller.alpha_A*(controller.f_Target-controller.f_A[t]) + controller.alpha_S*(controller.f_Target-controller.f_S[t]) #EQ5
         else:
             controller.f_Ci[t] = 0 #TODO: Check this
-        print('f_Ci', controller.f_Ci[t])
 
 class Process_EQ6(DivaSensorProcessor):
     def process_sensor_channel(self, controller, kearney_name, t):
@@ -109,16 +108,14 @@ class Controller(Control_System_simpleDIVA, PlotMixin, AnalysisMixin):
     def process_global(self, t, channels=None):
          # Calculate control integral using cumulative sum instead of quad
         control_integral = np.sum(self.f_Ci[:t+1]) * self.dt
-        print('control_integral', control_integral)
         self.f[t+1] = self.f_Target + control_integral
 
     def simulate(self, kearney_name):
         """
         Simple DIVA implementation
         """
-        
-        for t in range(0, self.time_length-1-(max(self.tau_A, self.tau_S))):
-            print('t', t)
+        int_tau = int(max(self.tau_A_init, self.tau_S_init))
+        for t in range(0, self.time_length-1-int_tau):
             self.sensor_processor.process_sensor_channel(self, kearney_name, t)
             self.process_global(t)
         
@@ -148,6 +145,8 @@ class Controller(Control_System_simpleDIVA, PlotMixin, AnalysisMixin):
         self.x = self.f
         self.v_aud = self.pert_P
         self.ref_type = 'null'
+        self.sensor_delay_aud = self.tau_A_init
+        self.sensor_delay_som = self.tau_S_init
         return self.y_aud, self.y_som, self.u, self.x, self.v_aud
 
 

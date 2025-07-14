@@ -115,10 +115,10 @@ def get_params():
         return type('ParamsObject', (), {'trace_type': trace_type, 'participant_ID': participant_ID, 'trial_ID': trial_ID, 'duration': duration, 'dt': dt, 'system_type': system_type, 'ref_type': ref_type, 'pert_type': pert_type, 'pert_mag': pert_mag, 'pert_onset': pert_onset, 'pert_duration': pert_duration, 'ramp_up_duration': ramp_up_duration, 'ramp_down_duration': ramp_down_duration, 'actuator_delay': actuator_delay, 'sensor_delay_aud': sensor_delay_aud, 'sensor_delay_som': sensor_delay_som, 'A_init': A_init, 'B_init': B_init, 'C_aud_init': C_aud_init, 'C_som_init': C_som_init, 'K_aud_init': K_aud_init, 'L_aud_init': L_aud_init, 'Kf_aud_init': Kf_aud_init, 'K_som_init': K_som_init, 'L_som_init': L_som_init, 'Kf_som_init': Kf_som_init})
     elif system_type == 'DIVA':
         kearney_name = config_expt['diva_starting_params']['kearney_name']
-        tau_A_init = config_expt['diva_starting_params']['delays']['tau_A'] #D1-D15
-        tau_S_init = config_expt['diva_starting_params']['delays']['tau_S'] #D2,
-        tau_As_init = config_expt['diva_starting_params']['delays']['tau_As']
-        tau_Ss_init = config_expt['diva_starting_params']['delays']['tau_Ss']
+        tau_A = config_expt['diva_starting_params']['delays']['tau_A'] #D1-D15
+        tau_S = config_expt['diva_starting_params']['delays']['tau_S'] #D2,
+        tau_As = config_expt['diva_starting_params']['delays']['tau_As']
+        tau_Ss = config_expt['diva_starting_params']['delays']['tau_Ss']
 
         alpha_A_init = config_expt['diva_starting_params']['gains']['alpha_A'] #D1-D15
         alpha_S_init = config_expt['diva_starting_params']['gains']['alpha_S'] #D1,D2,D5-D10,D12-D15
@@ -127,4 +127,4 @@ def get_params():
         alpha_Av_init = config_expt['diva_starting_params']['gains']['alpha_Av']
         alpha_Sv_init = config_expt['diva_starting_params']['gains']['alpha_Sv']
 
-        return type('DivaParamsObject', (), {'trace_type': trace_type, 'participant_ID': participant_ID, 'trial_ID': trial_ID, 'duration': duration, 'dt': dt, 'system_type': system_type, 'ref_type': ref_type, 'pert_type': pert_type, 'pert_mag': pert_mag, 'pert_onset': pert_onset, 'pert_duration': pert_duration, 'ramp_up_duration': ramp_up_duration, 'ramp_down_duration': ramp_down_duration, 'kearney_name': kearney_name, 'tau_A_init': tau_A_init, 'tau_S_init': tau_S_init, 'tau_As_init': tau_As_init, 'tau_Ss_init': tau_Ss_init, 'alpha_A_init': alpha_A_init, 'alpha_S_init': alpha_S_init, 'alpha_As_init': alpha_As_init, 'alpha_Ss_init': alpha_Ss_init, 'alpha_Av_init': alpha_Av_init, 'alpha_Sv_init': alpha_Sv_init})
+        return type('DivaParamsObject', (), {'trace_type': trace_type, 'participant_ID': participant_ID, 'trial_ID': trial_ID, 'duration': duration, 'dt': dt, 'system_type': system_type, 'ref_type': ref_type, 'pert_type': pert_type, 'pert_mag': pert_mag, 'pert_onset': pert_onset, 'pert_duration': pert_duration, 'ramp_up_duration': ramp_up_duration, 'ramp_down_duration': ramp_down_duration, 'kearney_name': kearney_name, 'tau_A': tau_A, 'tau_S': tau_S, 'tau_As': tau_As, 'tau_Ss': tau_Ss, 'alpha_A_init': alpha_A_init, 'alpha_S_init': alpha_S_init, 'alpha_As_init': alpha_As_init, 'alpha_Ss_init': alpha_Ss_init, 'alpha_Av_init': alpha_Av_init, 'alpha_Sv_init': alpha_Sv_init})

@@ -98,10 +98,13 @@ if calibrate_opt == 'Standard':
     )
 
     print('mse_history', mse_history)
-
-    sensor_delay_aud = int(cal_params.sensor_delay_aud)
-    sensor_delay_som = int(cal_params.sensor_delay_som)
-    actuator_delay = int(cal_params.actuator_delay)
+    if params_obj.system_type == 'DIVA':
+        sensor_delay_aud = int(cal_params.tau_A)
+        sensor_delay_som = int(cal_params.tau_S)
+    else:
+        sensor_delay_aud = int(cal_params.sensor_delay_aud)
+        sensor_delay_som = int(cal_params.sensor_delay_som)
+        actuator_delay = int(cal_params.actuator_delay)
 
     readout_optimized_params(cal_params, sensor_delay_aud, sensor_delay_som, actuator_delay)
 elif calibrate_opt == 'Particle Swarm':
@@ -116,8 +119,8 @@ elif calibrate_opt == 'Particle Swarm':
     )
 
     cal_params, mse_history, run_dir = calibrator.particle_swarm_calibrate(
-        num_particles=10,
-        max_iters=2,
+        num_particles=100,
+        max_iters=10,
         convergence_tol=0.01,
         runs=1,
         log_interval=20,  # Log every 20 iterations
@@ -128,9 +131,14 @@ elif calibrate_opt == 'Particle Swarm':
     print('mse_history', mse_history)
     print(f'Results saved to: {run_dir}')
 
-    sensor_delay_aud = int(cal_params.sensor_delay_aud)
-    sensor_delay_som = int(cal_params.sensor_delay_som)
-    actuator_delay = int(cal_params.actuator_delay)
+    if params_obj.system_type == 'DIVA':
+        sensor_delay_aud = int(cal_params.tau_A)
+        sensor_delay_som = int(cal_params.tau_S)
+        actuator_delay = None
+    else:
+        sensor_delay_aud = int(cal_params.sensor_delay_aud)
+        sensor_delay_som = int(cal_params.sensor_delay_som)
+        actuator_delay = int(cal_params.actuator_delay)
 
     # Save optimized parameters to the timestamped folder
     readout_optimized_params(cal_params, sensor_delay_aud, sensor_delay_som, actuator_delay, output_dir=run_dir)
@@ -140,9 +148,14 @@ elif calibrate_opt == 'DIVA':
 else:
     cal_params = params_obj
 
-    sensor_delay_aud = int(cal_params.sensor_delay_aud)
-    sensor_delay_som = int(cal_params.sensor_delay_som)
-    actuator_delay = int(cal_params.actuator_delay)
+    if params_obj.system_type == 'DIVA':
+        sensor_delay_aud = int(cal_params.tau_A)
+        sensor_delay_som = int(cal_params.tau_S)
+        actuator_delay = None
+    else:
+        sensor_delay_aud = int(cal_params.sensor_delay_aud)
+        sensor_delay_som = int(cal_params.sensor_delay_som)
+        actuator_delay = int(cal_params.actuator_delay)
 
 
 
@@ -170,7 +183,7 @@ elif system_choice == 'DIVA':
 
     # Get the appropriate sensor processor for the DIVA controller
     sensor_processor = get_sensor_processor(cal_params.kearney_name)
-    system = DIVAController(sensor_processor, T_sim, params_obj.dt, pert_signal.signal, pert_signal.start_ramp_up, target_response, cal_params.alpha_A_init, cal_params.alpha_S_init, cal_params.alpha_Av_init, cal_params.alpha_Sv_init, cal_params.tau_A_init, cal_params.tau_S_init, cal_params.tau_As_init, cal_params.tau_Ss_init)
+    system = DIVAController(sensor_processor, T_sim, params_obj.dt, pert_signal.signal, pert_signal.start_ramp_up, target_response, cal_params.alpha_A_init, cal_params.alpha_S_init, cal_params.alpha_Av_init, cal_params.alpha_Sv_init, cal_params.tau_A, cal_params.tau_S, cal_params.tau_As, cal_params.tau_Ss)
     system.simulate(cal_params.kearney_name)
 
     print('system.timeseries', system.timeseries.shape)
@@ -182,9 +195,9 @@ elif system_choice == 'DIVA':
     # print('system.pert_P', system.pert_P)
     print('f_Target', system.f_Target)
 
-    plt.plot(system.timeseries, system.pert_P)
-    plt.plot(system.timeseries, system.f)
-    plt.show()
+    # plt.plot(system.timeseries, system.pert_P)
+    # plt.plot(system.timeseries, system.f)
+    # plt.show()
 
 #system.plot_transient('abs2sens', start_dist=pert_signal.start_ramp_up) 
 #system.plot_all('abs2sens', custom_sig='dist', fig_save_path=fig_save_path)
