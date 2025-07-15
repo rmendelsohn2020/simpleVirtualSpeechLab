@@ -1,6 +1,6 @@
 import numpy as np
 import scipy.integrate as integrate
-from utils.pitchpert_dataprep import calculate_distortion_in_hz
+from pitch_pert_calibration.pitchpert_dataprep import calculate_distortion_in_hz
 from visualization.plotting import PlotMixin
 from abc import ABC, abstractmethod
 from utils.analysis import AnalysisMixin
@@ -8,23 +8,13 @@ from utils.analysis import AnalysisMixin
 #Base
 class Control_System_simpleDIVA(PlotMixin):
 
-    def __init__(self, timeseries, dt, perturbation, pert_onset, target_response, alpha_A, alpha_S, alpha_Av=None, alpha_Sv=None, alpha_As=None, alpha_Ss=None, tau_A=1, tau_S=1):
+    def __init__(self, timeseries, dt, perturbation, pert_onset, target_response, params):
         """
         Simple DIVA base
         """
         #Input parameters
-        self.alpha_A = alpha_A
-        self.alpha_S = alpha_S
-        if alpha_Av is not None:
-            self.alpha_Av = alpha_Av
-        if alpha_Sv is not None:
-            self.alpha_Sv = alpha_Sv
-        if alpha_As is not None:
-            self.alpha_As = alpha_As
-        if alpha_Ss is not None:
-            self.alpha_Ss = alpha_Ss
-        self.tau_A_init = tau_A
-        self.tau_S_init = tau_S
+        for param_name, value in params.items():
+            setattr(self, param_name, value)
 
         self.pert_onset = pert_onset
         #self.f_Target = self.calculate_f_target(target_response, self.pert_onset)
@@ -114,7 +104,20 @@ class Controller(Control_System_simpleDIVA, PlotMixin, AnalysisMixin):
         """
         Simple DIVA implementation
         """
-        int_tau = int(max(self.tau_A_init, self.tau_S_init))
+        # List of possible tau attribute names
+        tau_names = ['tau_A', 'tau_S', 'tau_As', 'tau_Ss', 'tau_Av', 'tau_Sv']
+
+        # Get the values if they exist, otherwise None
+        possible_taus = [getattr(self, name, None) for name in tau_names]
+
+        # Filter out None values
+        taus_present = [tau for tau in possible_taus if tau is not None]
+
+        if taus_present:
+            int_tau = int(max(taus_present))
+        else:
+            int_tau = 0  # or some other sensible default
+
         for t in range(0, self.time_length-1-int_tau):
             self.sensor_processor.process_sensor_channel(self, kearney_name, t)
             self.process_global(t)
@@ -145,8 +148,7 @@ class Controller(Control_System_simpleDIVA, PlotMixin, AnalysisMixin):
         self.x = self.f
         self.v_aud = self.pert_P
         self.ref_type = 'null'
-        self.sensor_delay_aud = self.tau_A_init
-        self.sensor_delay_som = self.tau_S_init
+        
         return self.y_aud, self.y_som, self.u, self.x, self.v_aud
 
 

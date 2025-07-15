@@ -7,11 +7,11 @@ from controllers.base import ControlSystem
 from controllers.implementations import Controller, AbsoluteSensorProcessor, RelativeSensorProcessor
 from utils.analysis import AnalysisMixin
 from visualization.plotting import PlotMixin
-from utils.pitchpert_dataprep import data_prep, truncate_data
+from pitch_pert_calibration.pitchpert_dataprep import data_prep, truncate_data
 from utils.signal_synth import RampedStep1D
 from utils.get_configs import get_paths, get_params
-from utils.pitchpert_calibration import get_perturbation_event_times, PitchPertCalibrator
-from visualization.readouts import readout_optimized_params
+from pitch_pert_calibration.pitchpert_calibration import get_perturbation_event_times, PitchPertCalibrator
+from visualization.readouts import readout_optimized_params, get_current_params, calibration_info_pack
 from controllers.simpleDIVAtest import Controller as DIVAController
 from controllers.simpleDIVAtest import get_sensor_processor
 # Get experiment parameters
@@ -183,7 +183,8 @@ elif system_choice == 'DIVA':
 
     # Get the appropriate sensor processor for the DIVA controller
     sensor_processor = get_sensor_processor(cal_params.kearney_name)
-    system = DIVAController(sensor_processor, T_sim, params_obj.dt, pert_signal.signal, pert_signal.start_ramp_up, target_response, cal_params.alpha_A_init, cal_params.alpha_S_init, cal_params.alpha_Av_init, cal_params.alpha_Sv_init, cal_params.tau_A, cal_params.tau_S, cal_params.tau_As, cal_params.tau_Ss)
+    current_params = calibration_info_pack(cal_params, cal_only=True)[3]
+    system = DIVAController(sensor_processor, T_sim, params_obj.dt, pert_signal.signal, pert_signal.start_ramp_up, target_response, current_params)
     system.simulate(cal_params.kearney_name)
 
     print('system.timeseries', system.timeseries.shape)

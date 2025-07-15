@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from utils.pitchpert_dataprep import truncate_data
+from pitch_pert_calibration.pitchpert_dataprep import truncate_data
 
 # Configuration
 save_figs = True

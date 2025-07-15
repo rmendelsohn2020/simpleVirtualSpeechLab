@@ -1,7 +1,7 @@
 import yaml
 import os
 import numpy as np
-from utils.pitchpert_dataprep import add_time_column_to_csv
+from pitch_pert_calibration.pitchpert_dataprep import add_time_column_to_csv
 
 def get_paths():
     # Initialize the config loader
@@ -98,16 +98,16 @@ def get_params():
         sensor_delay_aud = config_expt['starting_params']['delays']['sensor']['auditory']
         sensor_delay_som = config_expt['starting_params']['delays']['sensor']['somatosensory']
 
-        A_init = np.array(config_expt['starting_params']['system']['A'])
-        B_init = np.array(config_expt['starting_params']['system']['B'])
-        C_aud_init = np.array(config_expt['starting_params']['system']['C_aud'])
-        C_som_init = np.array(config_expt['starting_params']['system']['C_som'])
-        K_aud_init = config_expt['starting_params']['system']['K_aud']
-        L_aud_init = config_expt['starting_params']['system']['L_aud']
-        Kf_aud_init = config_expt['starting_params']['system']['Kf_aud']
-        K_som_init = config_expt['starting_params']['system']['K_som']
-        L_som_init = config_expt['starting_params']['system']['L_som']
-        Kf_som_init = config_expt['starting_params']['system']['Kf_som']
+        A = np.array(config_expt['starting_params']['system']['A'])
+        B = np.array(config_expt['starting_params']['system']['B'])
+        C_aud = np.array(config_expt['starting_params']['system']['C_aud'])
+        C_som = np.array(config_expt['starting_params']['system']['C_som'])
+        K_aud = config_expt['starting_params']['system']['K_aud']
+        L_aud = config_expt['starting_params']['system']['L_aud']
+        Kf_aud = config_expt['starting_params']['system']['Kf_aud']
+        K_som = config_expt['starting_params']['system']['K_som']
+        L_som = config_expt['starting_params']['system']['L_som']
+        Kf_som = config_expt['starting_params']['system']['Kf_som']
 
         # tune_Rs = config_expt['starting_params']['system']['tune_Rs']
         # tune_RNs = config_expt['starting_params']['system']['tune_RNs']
@@ -120,11 +120,11 @@ def get_params():
         tau_As = config_expt['diva_starting_params']['delays']['tau_As']
         tau_Ss = config_expt['diva_starting_params']['delays']['tau_Ss']
 
-        alpha_A_init = config_expt['diva_starting_params']['gains']['alpha_A'] #D1-D15
-        alpha_S_init = config_expt['diva_starting_params']['gains']['alpha_S'] #D1,D2,D5-D10,D12-D15
-        alpha_As_init = config_expt['diva_starting_params']['gains']['alpha_As']
-        alpha_Ss_init = config_expt['diva_starting_params']['gains']['alpha_Ss']
-        alpha_Av_init = config_expt['diva_starting_params']['gains']['alpha_Av']
-        alpha_Sv_init = config_expt['diva_starting_params']['gains']['alpha_Sv']
+        alpha_A = config_expt['diva_starting_params']['gains']['alpha_A'] #D1-D15
+        alpha_S = config_expt['diva_starting_params']['gains']['alpha_S'] #D1,D2,D5-D10,D12-D15
+        alpha_As = config_expt['diva_starting_params']['gains']['alpha_As']
+        alpha_Ss = config_expt['diva_starting_params']['gains']['alpha_Ss']
+        alpha_Av = config_expt['diva_starting_params']['gains']['alpha_Av']
+        alpha_Sv = config_expt['diva_starting_params']['gains']['alpha_Sv']
 
-        return type('DivaParamsObject', (), {'trace_type': trace_type, 'participant_ID': participant_ID, 'trial_ID': trial_ID, 'duration': duration, 'dt': dt, 'system_type': system_type, 'ref_type': ref_type, 'pert_type': pert_type, 'pert_mag': pert_mag, 'pert_onset': pert_onset, 'pert_duration': pert_duration, 'ramp_up_duration': ramp_up_duration, 'ramp_down_duration': ramp_down_duration, 'kearney_name': kearney_name, 'tau_A': tau_A, 'tau_S': tau_S, 'tau_As': tau_As, 'tau_Ss': tau_Ss, 'alpha_A_init': alpha_A_init, 'alpha_S_init': alpha_S_init, 'alpha_As_init': alpha_As_init, 'alpha_Ss_init': alpha_Ss_init, 'alpha_Av_init': alpha_Av_init, 'alpha_Sv_init': alpha_Sv_init})
+        return type('DivaParamsObject', (), {'trace_type': trace_type, 'participant_ID': participant_ID, 'trial_ID': trial_ID, 'duration': duration, 'dt': dt, 'system_type': system_type, 'ref_type': ref_type, 'pert_type': pert_type, 'pert_mag': pert_mag, 'pert_onset': pert_onset, 'pert_duration': pert_duration, 'ramp_up_duration': ramp_up_duration, 'ramp_down_duration': ramp_down_duration, 'kearney_name': kearney_name, 'tau_A': tau_A, 'tau_S': tau_S, 'tau_As': tau_As, 'tau_Ss': tau_Ss, 'alpha_A': alpha_A, 'alpha_S': alpha_S, 'alpha_As': alpha_As, 'alpha_Ss': alpha_Ss, 'alpha_Av': alpha_Av, 'alpha_Sv': alpha_Sv})

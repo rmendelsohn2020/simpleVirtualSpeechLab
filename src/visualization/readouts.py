@@ -1,171 +1,55 @@
 from utils.get_configs import get_paths
 from datetime import datetime
 import numpy as np
+from pitch_pert_calibration.param_configs import PARAM_CONFIGS, PARAM_BOUNDS
 
-# Centralized parameter configurations with implementation-specific parameter sets
-PARAM_CONFIGS = {
-    'DIVA': {
-        'title': 'Optimized DIVA ({kearney_name}) parameters:',
-        'param_sets': {
-            # D1: Only uses alpha_A (alpha_S = 0)
-            'D1': [
-                ('alpha_A', 'alpha_A_init'),
-                ('alpha_Av', 'alpha_Av_init'),
-                ('alpha_Sv', 'alpha_Sv_init'),
-                ('tau_A', 'tau_A_init'),
-                ('tau_S', 'tau_S_init'),
-                ('tau_As', 'tau_As_init'),
-                ('tau_Ss', 'tau_Ss_init'),
-            ],
-            # D2: Uses both alpha_A and alpha_S
-            'D2': [
-                ('alpha_A', 'alpha_A_init'),
-                ('alpha_S', 'alpha_S_init'),
-                ('alpha_Av', 'alpha_Av_init'),
-                ('alpha_Sv', 'alpha_Sv_init'),
-                ('tau_A', 'tau_A_init'),
-                ('tau_S', 'tau_S_init'),
-                ('tau_As', 'tau_As_init'),
-                ('tau_Ss', 'tau_Ss_init'),
-            ],
-            # D5-D10: Uses different parameter combinations (placeholder for now)
-            'D5': [
-                ('alpha_A', 'alpha_A_init'),
-                ('alpha_S', 'alpha_S_init'),
-                ('alpha_Av', 'alpha_Av_init'),
-                ('alpha_Sv', 'alpha_Sv_init'),
-                ('tau_A', 'tau_A_init'),
-                ('tau_S', 'tau_S_init'),
-                ('tau_As', 'tau_As_init'),
-                ('tau_Ss', 'tau_Ss_init'),
-            ],
-            'D6': [
-                ('alpha_A', 'alpha_A_init'),
-                ('alpha_S', 'alpha_S_init'),
-                ('alpha_Av', 'alpha_Av_init'),
-                ('alpha_Sv', 'alpha_Sv_init'),
-                ('tau_A', 'tau_A_init'),
-                ('tau_S', 'tau_S_init'),
-                ('tau_As', 'tau_As_init'),
-                ('tau_Ss', 'tau_Ss_init'),
-            ],
-            'D7': [
-                ('alpha_A', 'alpha_A_init'),
-                ('alpha_S', 'alpha_S_init'),
-                ('alpha_Av', 'alpha_Av_init'),
-                ('alpha_Sv', 'alpha_Sv_init'),
-                ('tau_A', 'tau_A_init'),
-                ('tau_S', 'tau_S_init'),
-                ('tau_As', 'tau_As_init'),
-                ('tau_Ss', 'tau_Ss_init'),
-            ],
-            'D8': [
-                ('alpha_A', 'alpha_A_init'),
-                ('alpha_S', 'alpha_S_init'),
-                ('alpha_Av', 'alpha_Av_init'),
-                ('alpha_Sv', 'alpha_Sv_init'),
-                ('tau_A', 'tau_A_init'),
-                ('tau_S', 'tau_S_init'),
-                ('tau_As', 'tau_As_init'),
-                ('tau_Ss', 'tau_Ss_init'),
-            ],
-            'D9': [
-                ('alpha_A', 'alpha_A_init'),
-                ('alpha_S', 'alpha_S_init'),
-                ('alpha_Av', 'alpha_Av_init'),
-                ('alpha_Sv', 'alpha_Sv_init'),
-                ('tau_A', 'tau_A_init'),
-                ('tau_S', 'tau_S_init'),
-                ('tau_As', 'tau_As_init'),
-                ('tau_Ss', 'tau_Ss_init'),
-            ],
-            'D10': [
-                ('alpha_A', 'alpha_A_init'),
-                ('alpha_S', 'alpha_S_init'),
-                ('alpha_Av', 'alpha_Av_init'),
-                ('alpha_Sv', 'alpha_Sv_init'),
-                ('tau_A', 'tau_A_init'),
-                ('tau_S', 'tau_S_init'),
-                ('tau_As', 'tau_As_init'),
-                ('tau_Ss', 'tau_Ss_init'),
-            ],
-            # D11-D15: Uses different parameter combinations (placeholder for now)
-            'D11': [
-                ('alpha_A', 'alpha_A_init'),
-                ('alpha_S', 'alpha_S_init'),
-                ('alpha_Av', 'alpha_Av_init'),
-                ('alpha_Sv', 'alpha_Sv_init'),
-                ('tau_A', 'tau_A_init'),
-                ('tau_S', 'tau_S_init'),
-                ('tau_As', 'tau_As_init'),
-                ('tau_Ss', 'tau_Ss_init'),
-            ],
-            'D12': [
-                ('alpha_A', 'alpha_A_init'),
-                ('alpha_S', 'alpha_S_init'),
-                ('alpha_Av', 'alpha_Av_init'),
-                ('alpha_Sv', 'alpha_Sv_init'),
-                ('tau_A', 'tau_A_init'),
-                ('tau_S', 'tau_S_init'),
-                ('tau_As', 'tau_As_init'),
-                ('tau_Ss', 'tau_Ss_init'),
-            ],
-            'D13': [
-                ('alpha_A', 'alpha_A_init'),
-                ('alpha_S', 'alpha_S_init'),
-                ('alpha_Av', 'alpha_Av_init'),
-                ('alpha_Sv', 'alpha_Sv_init'),
-                ('tau_A', 'tau_A_init'),
-                ('tau_S', 'tau_S_init'),
-                ('tau_As', 'tau_As_init'),
-                ('tau_Ss', 'tau_Ss_init'),
-            ],
-            'D14': [
-                ('alpha_A', 'alpha_A_init'),
-                ('alpha_S', 'alpha_S_init'),
-                ('alpha_Av', 'alpha_Av_init'),
-                ('alpha_Sv', 'alpha_Sv_init'),
-                ('tau_A', 'tau_A_init'),
-                ('tau_S', 'tau_S_init'),
-                ('tau_As', 'tau_As_init'),
-                ('tau_Ss', 'tau_Ss_init'),
-            ],
-            'D15': [
-                ('alpha_A', 'alpha_A_init'),
-                ('alpha_S', 'alpha_S_init'),
-                ('alpha_Av', 'alpha_Av_init'),
-                ('alpha_Sv', 'alpha_Sv_init'),
-                ('tau_A', 'tau_A_init'),
-                ('tau_S', 'tau_S_init'),
-                ('tau_As', 'tau_As_init'),
-                ('tau_Ss', 'tau_Ss_init'),
-            ],
-        },
-        'bounds': [
-            (1e-6, 5),
-            (1e-6, 5),
-            (1e-6, 5),
-            (1e-6, 5),
-            (1e-6, 5),
-            (1e-6, 5),
-            (1e-6, 5),
-            (1e-6, 5)
-        ]
-    },
-    'Template': {
-        'title': 'Optimized Template parameters:',
-        'params': [
-            ('A', 'A_init'),
-            ('B', 'B_init'),
-            ('C_aud', 'C_aud_init'),
-            ('C_som', 'C_som_init'),
-            ('K_aud', 'K_aud_init'),
-            ('L_aud', 'L_aud_init'),
-            ('K_som', 'K_som_init'),
-            ('L_som', 'L_som_init'),
-        ]
-    }
-}
+def calibration_info_pack(params_obj, cal_only=False):
+    if params_obj.system_type == 'DIVA':
+        param_config = get_params_for_implementation(params_obj.system_type, params_obj.kearney_name)
+    else:
+        param_config = get_params_for_implementation(params_obj.system_type)
+    param_bounds = get_bounds_for_params(params_obj.system_type, param_config)
+    
+    if cal_only:
+        current_params = get_current_params(params_obj, param_config, cal_only=cal_only)
+        x0 = get_init_values_for_params(current_params, param_config)
+    else:
+        current_params = get_current_params(params_obj, param_config, cal_only=cal_only)
+        x0 = get_init_values_for_params(params_obj, param_config)
+    
+    print('====INFO====')
+    print('cal_only', cal_only)
+    print('param_config', param_config)
+    print('param_bounds', param_bounds)
+    print('x0', x0)
+    print('current_params', current_params)
+    print('====INFO====')
+    
+    return param_config, param_bounds, x0, current_params
+
+def get_current_params(params_obj, param_config, cal_only=False):
+    current_params = {}
+    for param_name in param_config:
+        if hasattr(params_obj, param_name):
+            current_params[param_name] = getattr(params_obj, param_name)
+    if cal_only:
+        if params_obj.system_type == 'DIVA':
+            params_for_cal = get_params_for_implementation(params_obj.system_type, params_obj.kearney_name)
+        else:
+            params_for_cal = get_params_for_implementation(params_obj.system_type)
+        for param_name in params_for_cal:
+            if hasattr(params_obj, param_name):
+                current_params[param_name] = getattr(params_obj, param_name)
+    
+    return current_params
+
+def get_init_values_for_params(params_obj, params_list):
+    x0 = [getattr(params_obj, param_name, 1.0) for param_name in params_list]
+
+def get_bounds_for_params(system_type, param_names):
+    """Get bounds for specific parameters in order."""
+    bounds_config = PARAM_BOUNDS.get(system_type, {})
+    return [bounds_config.get(param_name, (0, 1)) for param_name in param_names]
 
 def get_params_for_implementation(system_type, kearney_name=None):
     """
@@ -216,9 +100,9 @@ def readout_optimized_params(cal_params, sensor_delay_aud=None, sensor_delay_som
 
     if 'print' in format_opt:
         print(title)
-        for param_name, attr_name in params_list:
-            if hasattr(cal_params, attr_name):
-                print(f'{param_name}: {getattr(cal_params, attr_name)}')
+        for param_name in params_list:
+            if hasattr(cal_params, param_name):
+                print(f'{param_name}: {getattr(cal_params, param_name)}')
 
         print(f'sensor_delay_aud: {sensor_delay_aud}')
         print(f'sensor_delay_som: {sensor_delay_som}')
@@ -233,9 +117,9 @@ def readout_optimized_params(cal_params, sensor_delay_aud=None, sensor_delay_som
             f.write(f"{title}\n")
             f.write("-----------------\n")
             
-            for param_name, attr_name in params_list:
-                if hasattr(cal_params, attr_name):
-                    value = getattr(cal_params, attr_name)
+            for param_name in params_list:
+                if hasattr(cal_params, param_name):
+                    value = getattr(cal_params, param_name)
                     # Handle array parameters differently
                     if isinstance(value, (list, np.ndarray)):
                         f.write(f"{param_name}:\n{value}\n\n")
