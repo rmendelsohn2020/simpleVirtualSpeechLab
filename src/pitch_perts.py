@@ -119,10 +119,10 @@ elif calibrate_opt == 'Particle Swarm':
     )
 
     cal_params, mse_history, run_dir = calibrator.particle_swarm_calibrate(
-        num_particles=100,
-        max_iters=10,
-        convergence_tol=0.01,
-        runs=1,
+        num_particles=10000,
+        max_iters=1000,
+        convergence_tol=0.001,
+        runs=10,
         log_interval=20,  # Log every 20 iterations
         save_interval=100,  # Save intermediate results every 100 iterations
         output_dir=None  # Uses default output directory
@@ -161,13 +161,13 @@ else:
 
 if system_choice == 'Relative':
     #Run simulation with calibrated params (Specify Gains)
-    system = Controller(sensor_processor=RelativeSensorProcessor(), input_A=cal_params.A_init, input_B=cal_params.B_init, input_C=cal_params.C_aud_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], K_vals=[cal_params.K_aud_init, cal_params.K_som_init], L_vals=[cal_params.L_aud_init, cal_params.L_som_init], Kf_vals=[cal_params.Kf_aud_init, cal_params.Kf_som_init], timeseries=T_sim)    
+    system = Controller(sensor_processor=RelativeSensorProcessor(), input_A=cal_params.A, input_B=cal_params.B, input_C=cal_params.C_aud, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], K_vals=[cal_params.K_aud, cal_params.K_som], L_vals=[cal_params.L_aud, cal_params.L_som], Kf_vals=[cal_params.Kf_aud, cal_params.Kf_som], timeseries=T_sim)    
     #Run simulation with calibrated params (Calculate Gains)
     #system = Controller(sensor_processor=RelativeSensorProcessor(), input_A=cal_params.A_init, input_B=cal_params.B_init, input_C=cal_params.C_aud_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], timeseries=T_sim)    
     system.simulate_with_2sensors(delta_t_s_aud=sensor_delay_aud, delta_t_s_som=sensor_delay_som, delta_t_a=actuator_delay)
     #system.simulate_with_1sensor(delta_t_s=sensor_delay_aud, delta_t_a=actuator_delay)
 elif system_choice == 'Absolute':
-    system = Controller(sensor_processor=AbsoluteSensorProcessor(), input_A=cal_params.A_init, input_B=cal_params.B_init, input_C=cal_params.C_aud_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], K_vals=[cal_params.K_aud_init, cal_params.K_som_init], L_vals=[cal_params.L_aud_init, cal_params.L_som_init], Kf_vals=[cal_params.Kf_aud_init, cal_params.Kf_som_init], timeseries=T_sim)    
+    system = Controller(sensor_processor=AbsoluteSensorProcessor(), input_A=cal_params.A, input_B=cal_params.B, input_C=cal_params.C_aud, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], K_vals=[cal_params.K_aud, cal_params.K_som], L_vals=[cal_params.L_aud, cal_params.L_som], Kf_vals=[cal_params.Kf_aud, cal_params.Kf_som], timeseries=T_sim)    
     system.simulate_with_2sensors(delta_t_s_aud=sensor_delay_aud, delta_t_s_som=sensor_delay_som, delta_t_a=actuator_delay)
 elif system_choice == 'DIVA':
     # alpha_A = 2.0

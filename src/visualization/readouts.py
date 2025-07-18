@@ -90,7 +90,7 @@ def readout_optimized_params(cal_params, sensor_delay_aud=None, sensor_delay_som
         params_list = get_params_for_implementation(cal_params.system_type, cal_params.kearney_name)
     else:
         params_list = get_params_for_implementation(cal_params.system_type)
-
+   
     # Get title with kearney_name if available
     title = config['title']
     if hasattr(cal_params, 'kearney_name'):

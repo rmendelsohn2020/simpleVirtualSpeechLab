@@ -38,11 +38,11 @@ starting_params:
     Kf_som: 0.35
 
 diva_starting_params:
-  kearney_name: 'D1'
+  kearney_name: 'D2'
   delays:
     tau_A: 2
-    tau_S: 20
-    tau_As: 20
+    tau_S: 3
+    tau_As: 2
     tau_Ss: 3
   gains:
     alpha_A: 0.8

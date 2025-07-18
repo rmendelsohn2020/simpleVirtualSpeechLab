@@ -15,7 +15,7 @@ from utils.signal_synth import RampedStep1D
 from utils.get_configs import get_paths, get_params
 from controllers.simpleDIVAtest import Controller as DIVAController
 from controllers.simpleDIVAtest import get_sensor_processor
-from visualization.readouts import get_params_for_implementation
+from visualization.readouts import get_params_for_implementation, readout_optimized_params
 from visualization.readouts import calibration_info_pack
 from utils.processing import make_jsonable_dict
 
@@ -652,6 +652,8 @@ class PitchPertCalibrator:
         Args:
             optimized_params: Array of optimized parameter values
         """
+        print('START:')
+        readout_optimized_params(self.params_obj, format_opt=['print'])
         if optimized_params is not None:
             if self.params_obj.system_type == 'DIVA':
                 config = get_params_for_implementation(self.params_obj.system_type, self.params_obj.kearney_name)
@@ -667,7 +669,8 @@ class PitchPertCalibrator:
             for param_name in config:  
                 if hasattr(self.params_obj, param_name):
                     setattr(self.params_obj, param_name, optimized_params_dict[param_name])
-
+        readout_optimized_params(self.params_obj, format_opt=['print'])
+        print('- END')
         
     def _apply_params_to_model(self, best_params):
         # Implementation of _apply_params_to_model method
