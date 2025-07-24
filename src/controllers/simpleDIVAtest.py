@@ -71,8 +71,8 @@ class Process_EQ5(DivaSensorProcessor):
             print(f'Incorrect equation for {kearney_name}')
             return
 
-        controller.f_A[t] = controller.f[t]*controller.pert_P[t]
-        controller.f_S[t] = controller.f[t]
+        controller.f_A[t] = controller.f[t-int(controller.tau_A)]*controller.pert_P[t-int(controller.tau_A)]
+        controller.f_S[t] = controller.f[t-int(controller.tau_S)]
         if t > controller.pert_onset:
             controller.f_Ci[t] = controller.alpha_A*(controller.f_Target-controller.f_A[t]) + controller.alpha_S*(controller.f_Target-controller.f_S[t]) #EQ5
         else:
@@ -148,6 +148,8 @@ class Controller(Control_System_simpleDIVA, PlotMixin, AnalysisMixin):
         self.x = self.f
         self.v_aud = self.pert_P
         self.ref_type = 'null'
+        self.arch_str = 'D1'
+        self.arch_title = 'Simple DIVA'
         
         return self.y_aud, self.y_som, self.u, self.x, self.v_aud
 

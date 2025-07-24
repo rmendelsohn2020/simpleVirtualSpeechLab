@@ -7,7 +7,7 @@ save_figs_dir = '/Users/rachelmendelsohn/Desktop/Salk/ArticulatoryFeedback/NewVS
 
 class PlotMixin:
     def plot_all(self, arch, custom_sig=None, custom_text=None, fig_save_path=None):
-        plt.title(self.arch_title + ' Control System Simulation\n K=' + str(self.K1) + ' Kf=' + str(self.Kf) + ' L=' + str(self.L1))
+        plt.title(self.arch_title + ' Control System Simulation')
         plt.xlabel('Time (s)')
         plt.ylabel('Values')
         plt.plot(self.timeseries, self.x, label='x')
@@ -18,10 +18,25 @@ class PlotMixin:
         if hasattr(self, 'q'):
             plt.plot(self.timeseries, self.q, label='q')
 
+        if hasattr(self, 'f_A'):
+            plt.plot(self.timeseries, self.f_A, label='f_A')
+        if hasattr(self, 'f_S'):
+            plt.plot(self.timeseries, self.f_S, label='f_S')
+        if hasattr(self, 'f_Ci'):
+            plt.plot(self.timeseries, self.f_Ci, label='f_Ci')
+        if hasattr(self, 'f'):
+            plt.plot(self.timeseries, self.f, label='f')
+
+
         if custom_sig:
             if custom_sig == 'dist':
-                plt.plot(self.timeseries, self.v_aud, label='v_aud')
-                plt.plot(self.timeseries, self.v_som, label='v_som')
+                if hasattr(self, 'pert_P'):
+                    plt.plot(self.timeseries, self.pert_P, label='pert_P')
+                elif hasattr(self, 'v_aud') and hasattr(self, 'v_som'):
+                    plt.plot(self.timeseries, self.v_aud, label='v_aud')
+                    plt.plot(self.timeseries, self.v_som, label='v_som')
+                else:
+                    raise ValueError(f"Unknown system type: {self.params_obj.system_type}")
 
 
         if custom_text:
@@ -31,8 +46,8 @@ class PlotMixin:
         plt.legend()
 
         if fig_save_path:
-            self.K_str = str(self.K1).replace('.', '_')
-            filename = f"{fig_save_path}/{arch}_plot_all_{self.ref_type}_K{self.K_str}.png"
+            #self.K_str = str(self.K1).replace('.', '_')
+            filename = f"{fig_save_path}/{arch}_plot_all_{self.ref_type}.png"
             plt.savefig(filename)
             print(f"Figure saved to {filename}")
 
@@ -195,5 +210,59 @@ class PlotMixin:
             plt.savefig(filename)
             print(f"Figure saved to {filename}")
 
+        plt.show()
+   
+    def plot_all_subplots(self, arch, custom_sig=None, custom_text=None, fig_save_path=None):
+        # Collect signals and their labels
+        signals = [('x', getattr(self, 'x', None))]
+        if hasattr(self, 'x_hat'):
+            signals.append(('x_hat', self.x_hat))
+        if hasattr(self, 'q_hat'):
+            signals.append(('q_hat', self.q_hat))
+        if hasattr(self, 'q'):
+            signals.append(('q', self.q))
+        if hasattr(self, 'f_A'):
+            signals.append(('f_A', self.f_A))
+        if hasattr(self, 'f_S'):
+            signals.append(('f_S', self.f_S))
+        if hasattr(self, 'f_Ci'):
+            signals.append(('f_Ci', self.f_Ci))
+        if hasattr(self, 'f'):
+            signals.append(('f', self.f))
+
+        # Handle custom_sig
+        if custom_sig == 'dist':
+            if hasattr(self, 'pert_P'):
+                signals.append(('pert_P', self.pert_P))
+            elif hasattr(self, 'v_aud') and hasattr(self, 'v_som'):
+                signals.append(('v_aud', self.v_aud))
+                signals.append(('v_som', self.v_som))
+            else:
+                raise ValueError(f"Unknown system type: {self.params_obj.system_type}")
+
+        n_signals = len(signals)
+        fig, axs = plt.subplots(n_signals, 1, figsize=(8, 2*n_signals), sharex=True)
+
+        if n_signals == 1:
+            axs = [axs]  # Ensure axs is iterable
+
+        for ax, (label, data) in zip(axs, signals):
+            ax.plot(self.timeseries, data, label=label)
+            ax.set_ylabel(label)
+            ax.legend(loc='upper right')
+            if custom_text:
+                ax.text(0.95, 0.05, custom_text, transform=ax.transAxes,
+                        fontsize=12, verticalalignment='bottom', horizontalalignment='right',
+                        bbox=dict(facecolor='white', alpha=0.5))
+
+        axs[-1].set_xlabel('Time (s)')
+        fig.suptitle(self.arch_title + ' Control System Simulation')
+
+        if fig_save_path:
+            filename = f"{fig_save_path}/{arch}_plot_all_subplots_{self.ref_type}.png"
+            plt.savefig(filename)
+            print(f"Figure saved to {filename}")
+
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
         plt.show()
    

@@ -45,7 +45,7 @@ def get_perturbation_event_times(file_path, units='cents', epsilon=1e-10):
         full_pert_idx = max_idx
         full_pert_val = max_val
     elif units == 'multiplier':
-        if max_abs_val == 1.0:
+        if max_abs_val >= 1.0-epsilon:
             first_pert_idx = (perturbation[abs(perturbation) < (1-epsilon)].index[0]) - 1
             print('first_pert_idx', first_pert_idx)
             full_pert_val = abs(perturbation).min()

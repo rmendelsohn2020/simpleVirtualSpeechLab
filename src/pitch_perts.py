@@ -76,7 +76,12 @@ pert_signal = RampedStep1D(params_obj.duration, dt=params_obj.dt, tstart_step=pi
 
 # plt.plot(T_sim, pert_signal.signal)
 # plt.show()
+# save_path = fig_save_path + '/pert_signal.png'
+# plt.savefig(save_path)
+# print(f"Figure saved to {save_path}")
 
+# #Plot pitch pert simulation v data with initial params
+# system = Controller(sensor_processor=RelativeSensorProcessor(), input_A=params_obj.A_init, input_B=params_obj.B_init, input_C=params_obj.C_aud_init, ref_type=params_obj.ref_type, K_vals=[params_obj.K_aud_init, params_obj.K_som_init], L_vals=[params_obj.L_aud_init, params_obj.L_som_init], timeseries=T_sim)    
 
 if calibrate_opt == 'Standard':
 # Create a calibrator instance
@@ -119,10 +124,10 @@ elif calibrate_opt == 'Particle Swarm':
     )
 
     cal_params, mse_history, run_dir = calibrator.particle_swarm_calibrate(
-        num_particles=10000,
-        max_iters=1000,
-        convergence_tol=0.001,
-        runs=10,
+        num_particles=100,
+        max_iters=10,
+        convergence_tol=0.01,
+        runs=1,
         log_interval=20,  # Log every 20 iterations
         save_interval=100,  # Save intermediate results every 100 iterations
         output_dir=None  # Uses default output directory
@@ -161,13 +166,13 @@ else:
 
 if system_choice == 'Relative':
     #Run simulation with calibrated params (Specify Gains)
-    system = Controller(sensor_processor=RelativeSensorProcessor(), input_A=cal_params.A, input_B=cal_params.B, input_C=cal_params.C_aud, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], K_vals=[cal_params.K_aud, cal_params.K_som], L_vals=[cal_params.L_aud, cal_params.L_som], Kf_vals=[cal_params.Kf_aud, cal_params.Kf_som], timeseries=T_sim)    
+    system = Controller(sensor_processor=RelativeSensorProcessor(), input_A=cal_params.A_init, input_B=cal_params.B_init, input_C=cal_params.C_aud_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], K_vals=[cal_params.K_aud_init, cal_params.K_som_init], L_vals=[cal_params.L_aud_init, cal_params.L_som_init], Kf_vals=[cal_params.Kf_aud_init, cal_params.Kf_som_init], timeseries=T_sim)    
     #Run simulation with calibrated params (Calculate Gains)
     #system = Controller(sensor_processor=RelativeSensorProcessor(), input_A=cal_params.A_init, input_B=cal_params.B_init, input_C=cal_params.C_aud_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], timeseries=T_sim)    
     system.simulate_with_2sensors(delta_t_s_aud=sensor_delay_aud, delta_t_s_som=sensor_delay_som, delta_t_a=actuator_delay)
     #system.simulate_with_1sensor(delta_t_s=sensor_delay_aud, delta_t_a=actuator_delay)
 elif system_choice == 'Absolute':
-    system = Controller(sensor_processor=AbsoluteSensorProcessor(), input_A=cal_params.A, input_B=cal_params.B, input_C=cal_params.C_aud, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], K_vals=[cal_params.K_aud, cal_params.K_som], L_vals=[cal_params.L_aud, cal_params.L_som], Kf_vals=[cal_params.Kf_aud, cal_params.Kf_som], timeseries=T_sim)    
+    system = Controller(sensor_processor=AbsoluteSensorProcessor(), input_A=cal_params.A_init, input_B=cal_params.B_init, input_C=cal_params.C_aud_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], K_vals=[cal_params.K_aud_init, cal_params.K_som_init], L_vals=[cal_params.L_aud_init, cal_params.L_som_init], Kf_vals=[cal_params.Kf_aud_init, cal_params.Kf_som_init], timeseries=T_sim)    
     system.simulate_with_2sensors(delta_t_s_aud=sensor_delay_aud, delta_t_s_som=sensor_delay_som, delta_t_a=actuator_delay)
 elif system_choice == 'DIVA':
     # alpha_A = 2.0
@@ -204,11 +209,18 @@ elif system_choice == 'DIVA':
 #system.plot_all('abs2sens', custom_sig='dist', fig_save_path=fig_save_path)
 
 timeseries_truncated, system_response_truncated = truncate_data(T_sim, system.x, truncate_start, truncate_end)
-aud_pert_truncated = truncate_data(T_sim, system.v_aud, truncate_start, truncate_end)[1]
+if system_choice == 'DIVA':
+    aud_pert_truncated = truncate_data(T_sim, system.pert_P, truncate_start, truncate_end)[1]
+else:
+    aud_pert_truncated = truncate_data(T_sim, system.v_aud, truncate_start, truncate_end)[1]
+
+print('length of aud_pert_truncated', len(aud_pert_truncated))
+print('length of pitch_pert_data', len(pitch_pert_data))    
 
 # Only run plotting if this script is run directly (not imported)
 if __name__ == "__main__":
     # Use run_dir if available (from particle swarm), otherwise use default fig_save_path
     plot_output_dir = run_dir if calibrate_opt == 'Particle Swarm' and 'run_dir' in locals() else fig_save_path
+    #system.plot_all_subplots('abs2sens', custom_sig='dist', fig_save_path=fig_save_path)
     system.plot_data_overlay('abs2sens', target_response, pitch_pert_data, time_trunc=timeseries_truncated, resp_trunc=system_response_truncated, pitch_pert_truncated=aud_pert_truncated, output_dir=plot_output_dir)
 #system.plot_truncated(truncate_start, truncate_end)
