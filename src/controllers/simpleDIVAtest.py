@@ -67,6 +67,7 @@ class Process_EQ5(DivaSensorProcessor):
   
         if kearney_name == 'D1':
             controller.alpha_S = 0
+            controller.tau_S = 0
         elif kearney_name != 'D2':
             print(f'Incorrect equation for {kearney_name}')
             return

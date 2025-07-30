@@ -7,7 +7,7 @@ data:
 simulation:
   duration: 10.8  # Duration of each trial in seconds
   sec_per_step: 0.005
-  system_type: 'DIVA' # 'DIVA' or 'Template'
+  system_type: 'Template' # 'DIVA' or 'Template'
   ref_type: 'null'  # 'sin' or 'null'
 
 perturbation:
@@ -20,16 +20,17 @@ perturbation:
     down_duration: 0.250  # Duration of the ramp down in seconds
 
 starting_params:
+  arb_name: 'T1'
   delays:
-    actuator: 1
+    actuator: 3
     sensor:
-      auditory: 11
-      somatosensory: 2
+      auditory: 30
+      somatosensory: 3
   system:
     A: [0.8]
     B: [1.1]
-    C_aud: [0.4]
-    C_som: [1]
+    C_aud: 0.4
+    C_som: 1
     K_aud: 0.20
     L_aud: 0.30
     Kf_aud: 0.35
@@ -38,15 +39,15 @@ starting_params:
     Kf_som: 0.35
 
 diva_starting_params:
-  kearney_name: 'D2'
+  kearney_name: 'D1'
   delays:
-    tau_A: 2
-    tau_S: 3
+    tau_A: 22
+    tau_S: 31
     tau_As: 2
     tau_Ss: 3
   gains:
-    alpha_A: 0.8
-    alpha_S: 1.1
+    alpha_A: 0.010
+    alpha_S: 0.013
     alpha_As: 0.4
     alpha_Ss: 1
     alpha_Av: 0.4

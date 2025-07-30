@@ -1,13 +1,18 @@
 from utils.get_configs import get_paths
 from datetime import datetime
 import numpy as np
-from pitch_pert_calibration.param_configs import PARAM_CONFIGS, PARAM_BOUNDS
+from pitch_pert_calibration.param_configs import PARAM_CONFIGS, PARAM_BOUNDS, PARAM_NULL_VALUES
 
-def calibration_info_pack(params_obj, cal_only=False):
+def calibration_info_pack(params_obj, cal_only=False, print_opt=['print'], custom_label=''):
     if params_obj.system_type == 'DIVA':
         param_config = get_params_for_implementation(params_obj.system_type, params_obj.kearney_name)
+        print('param_config', param_config)
+    elif params_obj.system_type == 'Template':
+        param_config = get_params_for_implementation(params_obj.system_type, arb_name=params_obj.arb_name)
+        print('param_config', param_config)
     else:
         param_config = get_params_for_implementation(params_obj.system_type)
+        print('WARNING:Unlisted system type')
     param_bounds = get_bounds_for_params(params_obj.system_type, param_config)
     
     if cal_only:
@@ -17,17 +22,18 @@ def calibration_info_pack(params_obj, cal_only=False):
         current_params = get_current_params(params_obj, param_config, cal_only=cal_only)
         x0 = get_init_values_for_params(params_obj, param_config)
     
-    print('====INFO====')
-    print('cal_only', cal_only)
-    print('param_config', param_config)
-    print('param_bounds', param_bounds)
-    print('x0', x0)
-    print('current_params', current_params)
-    print('====INFO====')
+    if 'print' in print_opt:
+        print(f'====INFO {custom_label}====')
+        print('cal_only', cal_only)
+        print('param_config', param_config)
+        print('param_bounds', param_bounds)
+        print('x0', x0)
+        print(f'{custom_label} current_params', current_params)
+        print(f'====END {custom_label} INFO====')
     
     return param_config, param_bounds, x0, current_params
 
-def get_current_params(params_obj, param_config, cal_only=False):
+def get_current_params(params_obj, param_config, cal_only=False, null_values=False):
     current_params = {}
     for param_name in param_config:
         if hasattr(params_obj, param_name):
@@ -35,12 +41,19 @@ def get_current_params(params_obj, param_config, cal_only=False):
     if cal_only:
         if params_obj.system_type == 'DIVA':
             params_for_cal = get_params_for_implementation(params_obj.system_type, params_obj.kearney_name)
+        elif params_obj.system_type == 'Template':
+            params_for_cal = get_params_for_implementation(params_obj.system_type, arb_name=params_obj.arb_name)
         else:
             params_for_cal = get_params_for_implementation(params_obj.system_type)
+            print('WARNING:Unlisted system type')
+
         for param_name in params_for_cal:
             if hasattr(params_obj, param_name):
                 current_params[param_name] = getattr(params_obj, param_name)
-    
+    if null_values:
+        for param_name in param_config:
+            if param_name not in current_params:
+                current_params[param_name] = PARAM_NULL_VALUES[params_obj.system_type][param_name]
     return current_params
 
 def get_init_values_for_params(params_obj, params_list):
@@ -51,27 +64,33 @@ def get_bounds_for_params(system_type, param_names):
     bounds_config = PARAM_BOUNDS.get(system_type, {})
     return [bounds_config.get(param_name, (0, 1)) for param_name in param_names]
 
-def get_params_for_implementation(system_type, kearney_name=None):
+def get_params_for_implementation(system_type, kearney_name=None, arb_name=None, null_values=False):
     """
     Get the appropriate parameter list for a given system type and implementation.
     
     Args:
         system_type: 'DIVA' or 'Template'
         kearney_name: Implementation name (e.g., 'D1', 'D2', etc.) for DIVA
-    
+        arb_name: Articulatory name (e.g., 'all', 'T1', 'T2', etc.) for Template
     Returns:
         List of (param_name, attr_name) tuples for the specific implementation
     """
     config = PARAM_CONFIGS.get(system_type)
     if not config:
+        print(f"Unknown system type: {system_type}")
         return []
     
     if system_type == 'DIVA':
-        if kearney_name and 'param_sets' in config:
-            return config['param_sets'].get(kearney_name, [])
+        return config['param_sets'].get(kearney_name, [])
+    elif system_type == 'Template':
+        if null_values==True:
+            print(f"Using null values for {arb_name}")
+            return config['param_sets'].get(arb_name, [])
         else:
-            # Fallback to default if no specific implementation found
-            return config.get('params', [])
+            print(f"Using {arb_name} values")
+            return config['param_sets'].get(arb_name, [])
+            
+            
     else:
         return config.get('params', [])
 
@@ -88,8 +107,11 @@ def readout_optimized_params(cal_params, sensor_delay_aud=None, sensor_delay_som
     # Get the appropriate parameter list for this implementation
     if cal_params.system_type == 'DIVA' and hasattr(cal_params, 'kearney_name'):
         params_list = get_params_for_implementation(cal_params.system_type, cal_params.kearney_name)
+    elif cal_params.system_type == 'Template' and hasattr(cal_params, 'arb_name'):
+        params_list = get_params_for_implementation(cal_params.system_type, arb_name=cal_params.arb_name)
     else:
         params_list = get_params_for_implementation(cal_params.system_type)
+        print('WARNING:Unlisted system type')
    
     # Get title with kearney_name if available
     title = config['title']

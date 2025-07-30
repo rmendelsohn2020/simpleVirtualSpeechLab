@@ -33,10 +33,14 @@ if params_obj.system_type == 'DIVA':
 elif params_obj.system_type == 'Template':
     system_choice = 'Relative'
     units = 'cents'
-    sensor_processor = RelativeSensorProcessor()
+    #sensor_processor = RelativeSensorProcessor()
+    sensor_processor = AbsoluteSensorProcessor()
+    print('params_obj.arb_name', params_obj.arb_name)
 else:
     print('No system type specified')
     sensor_processor = None
+
+
 
 ###Define Perturbation Experiment Parameters
 T_sim = np.arange(0,params_obj.duration, params_obj.dt)
@@ -124,8 +128,8 @@ elif calibrate_opt == 'Particle Swarm':
     )
 
     cal_params, mse_history, run_dir = calibrator.particle_swarm_calibrate(
-        num_particles=100,
-        max_iters=10,
+        num_particles=5,
+        max_iters=3,
         convergence_tol=0.01,
         runs=1,
         log_interval=20,  # Log every 20 iterations
@@ -166,7 +170,7 @@ else:
 
 if system_choice == 'Relative':
     #Run simulation with calibrated params (Specify Gains)
-    system = Controller(sensor_processor=RelativeSensorProcessor(), input_A=cal_params.A_init, input_B=cal_params.B_init, input_C=cal_params.C_aud_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], K_vals=[cal_params.K_aud_init, cal_params.K_som_init], L_vals=[cal_params.L_aud_init, cal_params.L_som_init], Kf_vals=[cal_params.Kf_aud_init, cal_params.Kf_som_init], timeseries=T_sim)    
+    system = Controller(sensor_processor=RelativeSensorProcessor(), input_A=cal_params.A, input_B=cal_params.B, input_C=cal_params.C_aud, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], K_vals=[cal_params.K_aud, cal_params.K_som], L_vals=[cal_params.L_aud, cal_params.L_som], Kf_vals=[cal_params.Kf_aud, cal_params.Kf_som], timeseries=T_sim)    
     #Run simulation with calibrated params (Calculate Gains)
     #system = Controller(sensor_processor=RelativeSensorProcessor(), input_A=cal_params.A_init, input_B=cal_params.B_init, input_C=cal_params.C_aud_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], timeseries=T_sim)    
     system.simulate_with_2sensors(delta_t_s_aud=sensor_delay_aud, delta_t_s_som=sensor_delay_som, delta_t_a=actuator_delay)
@@ -213,9 +217,7 @@ if system_choice == 'DIVA':
     aud_pert_truncated = truncate_data(T_sim, system.pert_P, truncate_start, truncate_end)[1]
 else:
     aud_pert_truncated = truncate_data(T_sim, system.v_aud, truncate_start, truncate_end)[1]
-
-print('length of aud_pert_truncated', len(aud_pert_truncated))
-print('length of pitch_pert_data', len(pitch_pert_data))    
+   
 
 # Only run plotting if this script is run directly (not imported)
 if __name__ == "__main__":

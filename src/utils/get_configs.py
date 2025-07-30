@@ -94,6 +94,8 @@ def get_params():
     system_type = config_expt['simulation']['system_type']
 
     if system_type == 'Template':
+        arb_name = config_expt['starting_params']['arb_name']
+
         actuator_delay = config_expt['starting_params']['delays']['actuator']
         sensor_delay_aud = config_expt['starting_params']['delays']['sensor']['auditory']
         sensor_delay_som = config_expt['starting_params']['delays']['sensor']['somatosensory']
@@ -112,7 +114,7 @@ def get_params():
         # tune_Rs = config_expt['starting_params']['system']['tune_Rs']
         # tune_RNs = config_expt['starting_params']['system']['tune_RNs']
 
-        return type('ParamsObject', (), {'trace_type': trace_type, 'participant_ID': participant_ID, 'trial_ID': trial_ID, 'duration': duration, 'dt': dt, 'system_type': system_type, 'ref_type': ref_type, 'pert_type': pert_type, 'pert_mag': pert_mag, 'pert_onset': pert_onset, 'pert_duration': pert_duration, 'ramp_up_duration': ramp_up_duration, 'ramp_down_duration': ramp_down_duration, 'actuator_delay': actuator_delay, 'sensor_delay_aud': sensor_delay_aud, 'sensor_delay_som': sensor_delay_som, 'A': A, 'B': B, 'C_aud': C_aud, 'C_som': C_som, 'K_aud': K_aud, 'L_aud': L_aud, 'Kf_aud': Kf_aud, 'K_som': K_som, 'L_som': L_som, 'Kf_som': Kf_som})
+        return type('ParamsObject', (), {'trace_type': trace_type, 'participant_ID': participant_ID, 'trial_ID': trial_ID, 'duration': duration, 'dt': dt, 'system_type': system_type, 'ref_type': ref_type, 'pert_type': pert_type, 'pert_mag': pert_mag, 'pert_onset': pert_onset, 'pert_duration': pert_duration, 'ramp_up_duration': ramp_up_duration, 'ramp_down_duration': ramp_down_duration, 'actuator_delay': actuator_delay, 'sensor_delay_aud': sensor_delay_aud, 'sensor_delay_som': sensor_delay_som, 'A': A, 'B': B, 'C_aud': C_aud, 'C_som': C_som, 'K_aud': K_aud, 'L_aud': L_aud, 'Kf_aud': Kf_aud, 'K_som': K_som, 'L_som': L_som, 'Kf_som': Kf_som, 'arb_name': arb_name})
     elif system_type == 'DIVA':
         kearney_name = config_expt['diva_starting_params']['kearney_name']
         tau_A = config_expt['diva_starting_params']['delays']['tau_A'] #D1-D15

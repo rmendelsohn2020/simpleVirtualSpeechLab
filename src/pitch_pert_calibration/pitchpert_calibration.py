@@ -100,13 +100,16 @@ class PitchPertCalibrator:
         Returns:
             MSE between simulation and target response
         """
-        param_config, bounds, x0, current_params = calibration_info_pack(self.params_obj)
-        print('current_params', current_params)
+        self._set_current_params(params)
+        print('current_params', self.current_params)
+        #param_config, bounds, x0, current_params = calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='Objective Function')
+        
         if self.params_obj.system_type == 'DIVA':
             print('Diva sensor processor')
 
-            system = DIVAController(self.sensor_processor, self.T_sim, self.params_obj.dt, self.pert_signal.signal, self.pert_signal.start_ramp_up, self.target_response, current_params)
+            system = DIVAController(self.sensor_processor, self.T_sim, self.params_obj.dt, self.pert_signal.signal, self.pert_signal.start_ramp_up, self.target_response, self.current_params)
             system.simulate(self.params_obj.kearney_name)
+    
 
         else:
             # Template system - use existing logic
@@ -174,7 +177,7 @@ class PitchPertCalibrator:
         Returns:
             Optimized parameters object and optimization history
         """
-        param_config, bounds, x0 = calibration_info_pack(self.params_obj)
+        param_config, bounds, x0 = calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='Calibrate')
 
         # Reset MSE history
         self.mse_history = []
@@ -250,9 +253,9 @@ class PitchPertCalibrator:
                 print(log_entry)
     
         # Initialize tracking variables 
-        param_config, bounds, x0, current_params = calibration_info_pack(self.params_obj)
-        print('current_params', current_params)
+        param_config, bounds, x0, current_params = calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='Particle Swarm')
         bounds = np.array(bounds)  # Convert to numpy array for indexing
+        print('bounds', bounds)
 
         num_params = len(bounds)
         best_overall_rmse = np.inf
@@ -298,6 +301,16 @@ class PitchPertCalibrator:
             }
             
             for it in range(max_iters):
+                # #Scatter plot for test parameter
+                # plt.scatter(particles[:, 0], particles[:, 1])
+                # plt.xlabel('Parameter 1')
+                # plt.ylabel('Parameter 2')
+                # plt.title(f'Run {run+1}, Iter {it+1}')
+                # #Save plot
+                # plt.savefig(os.path.join(run_dir, f'run_{run+1}_iter_{it+1}_particles.png'), dpi=300, bbox_inches='tight')
+                # plt.close()
+                # print('Saved plot to', os.path.join(run_dir, f'run_{run+1}_iter_{it+1}_particles.png'))
+                
                 # Evaluate all particles
                 rmses = np.array([self.objective_function(p) for p in particles])
                 current_best_rmse = np.min(rmses)
@@ -462,9 +475,9 @@ class PitchPertCalibrator:
     def _get_parameter_dict(self, best_params):
         """Convert parameter array to dictionary based on system type."""
         if self.params_obj.system_type == 'DIVA':
-            config = get_params_for_implementation(self.params_obj.system_type, self.params_obj.kearney_name)
+            config = get_params_for_implementation(self.params_obj.system_type, kearney_name=self.params_obj.kearney_name)
         elif self.params_obj.system_type == 'Template':
-            config = get_params_for_implementation(self.params_obj.system_type)
+            config = get_params_for_implementation(self.params_obj.system_type, arb_name=self.params_obj.arb_name)
         return {param_name: value for param_name, value in zip(config, best_params)}
     
     def _save_intermediate_results(self, run_dir, run, iteration, best_params, best_rmse, particles, rmses, progress_data):
@@ -652,13 +665,13 @@ class PitchPertCalibrator:
         Args:
             optimized_params: Array of optimized parameter values
         """
-        print('START:')
-        readout_optimized_params(self.params_obj, format_opt=['print'])
+        print('START: apply_optimized_params')
+        readout_optimized_params(self.params_obj)
         if optimized_params is not None:
             if self.params_obj.system_type == 'DIVA':
-                config = get_params_for_implementation(self.params_obj.system_type, self.params_obj.kearney_name)
+                config = get_params_for_implementation(self.params_obj.system_type, kearney_name=self.params_obj.kearney_name)
             elif self.params_obj.system_type == 'Template':
-                config = get_params_for_implementation(self.params_obj.system_type)
+                config = get_params_for_implementation(self.params_obj.system_type, arb_name=self.params_obj.arb_name)
             
             # Make optimized_params a dictionary
             optimized_params_dict = {
@@ -669,8 +682,23 @@ class PitchPertCalibrator:
             for param_name in config:  
                 if hasattr(self.params_obj, param_name):
                     setattr(self.params_obj, param_name, optimized_params_dict[param_name])
-        readout_optimized_params(self.params_obj, format_opt=['print'])
-        print('- END')
+        readout_optimized_params(self.params_obj)
+        calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='After Applying Optimized Params')
+        print('- END: apply_optimized_params')
+
+    def _set_current_params(self, params):
+        """Set current_params dict to params"""
+        if self.params_obj.system_type == 'DIVA':
+                config = get_params_for_implementation(self.params_obj.system_type, kearney_name=self.params_obj.kearney_name)
+        elif self.params_obj.system_type == 'Template':
+            print('self.params_obj.arb_name', self.params_obj.arb_name)
+            config = get_params_for_implementation(self.params_obj.system_type, arb_name=self.params_obj.arb_name, null_values=True)
+
+        current_params = {
+            param_name: value
+            for param_name, value in zip(config, params)
+        }
+        self.current_params = current_params
         
     def _apply_params_to_model(self, best_params):
         # Implementation of _apply_params_to_model method
