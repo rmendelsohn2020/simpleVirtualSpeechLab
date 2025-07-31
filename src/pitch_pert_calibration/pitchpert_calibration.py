@@ -15,8 +15,7 @@ from utils.signal_synth import RampedStep1D
 from utils.get_configs import get_paths, get_params
 from controllers.simpleDIVAtest import Controller as DIVAController
 from controllers.simpleDIVAtest import get_sensor_processor
-from visualization.readouts import get_params_for_implementation, readout_optimized_params
-from visualization.readouts import calibration_info_pack
+from visualization.readouts import get_params_for_implementation, readout_optimized_params, get_current_params, calibration_info_pack, BlankParamsObject
 from utils.processing import make_jsonable_dict
 
 def get_perturbation_event_times(file_path, units='cents', epsilon=1e-10):
@@ -100,8 +99,9 @@ class PitchPertCalibrator:
         Returns:
             MSE between simulation and target response
         """
+        print('params', params)
         self._set_current_params(params)
-        print('current_params', self.current_params)
+        print('objective function current_params', self.current_params)
         #param_config, bounds, x0, current_params = calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='Objective Function')
         
         if self.params_obj.system_type == 'DIVA':
@@ -113,25 +113,23 @@ class PitchPertCalibrator:
 
         else:
             # Template system - use existing logic
-            A = np.array([params[0]])
-            B = np.array([params[1]])
-            C_aud = np.array([params[2]])
-            C_som = np.array([params[3]])
-            K_aud = params[4]
-            L_aud = params[5]
-            K_som = params[6]
-            L_som = params[7]
-            sensor_delay_aud = params[8]
-            sensor_delay_som = params[9]
-            actuator_delay = params[10]
+            # A = np.array([params[0]])
+            # B = np.array([params[1]])
+            # C_aud = np.array([params[2]])
+            # C_som = np.array([params[3]])
+            # K_aud = params[4]
+            # L_aud = params[5]
+            # K_som = params[6]
+            # L_som = params[7]
+            # sensor_delay_aud = params[8]
+            # sensor_delay_som = params[9]
+            # actuator_delay = params[10]
             
             # Create system with current parameters
             system = Controller(
                 sensor_processor=self.sensor_processor, 
-                input_A=A, input_B=B, input_C=C_aud, 
+                params=self.current_params,
                 ref_type=self.params_obj.ref_type, 
-                K_vals=[K_aud, K_som], 
-                L_vals=[L_aud, L_som],
                 dist_custom=self.pert_signal.signal,
                 dist_type=['Auditory'],
                 timeseries=self.T_sim
@@ -139,9 +137,9 @@ class PitchPertCalibrator:
             
             # Run simulation
             system.simulate_with_2sensors(
-                delta_t_s_aud=int(sensor_delay_aud),
-                delta_t_s_som=int(sensor_delay_som),
-                delta_t_a=int(actuator_delay)
+                delta_t_s_aud=int(self.current_params['sensor_delay_aud']),
+                delta_t_s_som=int(self.current_params['sensor_delay_som']),
+                delta_t_a=int(self.current_params['actuator_delay'])
             )
         
         # Calculate MSE between simulation and calibration data
@@ -177,7 +175,7 @@ class PitchPertCalibrator:
         Returns:
             Optimized parameters object and optimization history
         """
-        param_config, bounds, x0 = calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='Calibrate')
+        param_config, bounds, x0 = calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='Calibrate', null_values=False)
 
         # Reset MSE history
         self.mse_history = []
@@ -253,7 +251,7 @@ class PitchPertCalibrator:
                 print(log_entry)
     
         # Initialize tracking variables 
-        param_config, bounds, x0, current_params = calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='Particle Swarm')
+        param_config, bounds, x0, current_params = calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='Particle Swarm', null_values=False)
         bounds = np.array(bounds)  # Convert to numpy array for indexing
         print('bounds', bounds)
 
@@ -688,16 +686,26 @@ class PitchPertCalibrator:
 
     def _set_current_params(self, params):
         """Set current_params dict to params"""
+        print('params_obj type', type(self.params_obj))
         if self.params_obj.system_type == 'DIVA':
                 config = get_params_for_implementation(self.params_obj.system_type, kearney_name=self.params_obj.kearney_name)
         elif self.params_obj.system_type == 'Template':
             print('self.params_obj.arb_name', self.params_obj.arb_name)
-            config = get_params_for_implementation(self.params_obj.system_type, arb_name=self.params_obj.arb_name, null_values=True)
-
-        current_params = {
-            param_name: value
-            for param_name, value in zip(config, params)
-        }
+            config = get_params_for_implementation(self.params_obj.system_type, arb_name=self.params_obj.arb_name)
+            null_values = True
+        else:
+            print('WARNING: Unlisted system type')
+        if type(params) != type(self.params_obj):
+            print('params is not the same type as params_obj')
+            temp_params = BlankParamsObject(**{
+                param_name: value
+                for param_name, value in zip(config, params)
+            })
+        else:
+            temp_params = params
+            
+        current_params= get_current_params(self.params_obj, config, cal_only=True, null_values=null_values, params=temp_params)
+        
         self.current_params = current_params
         
     def _apply_params_to_model(self, best_params):

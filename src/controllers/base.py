@@ -2,23 +2,27 @@ import numpy as np
 import control as ct
 
 class ControlSystem:
-    def __init__(self, input_A, input_B, input_C, secondinput_C=None, ref_type='sin', dist_custom=None, dist_type=['GenSens'], timeseries=None, K_vals=[None, None], L_vals=[None, None], Kf_vals=[None, None], tune_Rs=[1,1], tune_RNs=[1,1]):
+    def __init__(self, params, ref_type='sin', dist_custom=None, dist_type=['GenSens'], timeseries=None, calc_gains=False, tune_gains=[None, None]):
         #NOTE: input arguments can describe certain features of the system matrices,
         #but currently are used to directly as the matrices A, B, C, Q and R
+
+         #Input parameters
+        for param_name, value in params.items():
+            setattr(self, param_name, value)
         print('dist_type: ', dist_type)
-        self.A = input_A
-        self.B = input_B
-        if secondinput_C is not None:
-            self.C_aud = input_C
-            self.C_som = secondinput_C
-            self.C = input_C
-            #TODO: Set gains for each controller
-            # self.set_gains(K_vals[0], L_vals[0], 'aud_')
-            # self.set_gains(K_vals[1], L_vals[1], 'som_')
-        else:
-            self.C = input_C
-            self.C_aud = input_C
-            self.C_som = input_C
+        # self.A = input_A
+        # self.B = input_B
+        # if secondinput_C is not None:
+        #     self.C_aud = input_C
+        #     self.C_som = secondinput_C
+        #     self.C = input_C
+        #     #TODO: Set gains for each controller
+        #     # self.set_gains(K_vals[0], L_vals[0], 'aud_')
+        #     # self.set_gains(K_vals[1], L_vals[1], 'som_')
+        # else:
+        #     self.C = input_C
+        #     self.C_aud = input_C
+        #     self.C_som = input_C
 
         ###Simulation parameters
         if timeseries is not None:
@@ -99,24 +103,38 @@ class ControlSystem:
             self.r = np.sin(self.timeseries).reshape(-1, 1)
         elif self.ref_type == 'null':
             self.r = np.zeros((self.time_length,1))
+            
+        #TODO: Make compatible with new parameter input structure
+        controller_suffixes = ['_aud', '_som', '']
+        controller_prefixes = ['aud_', 'som_', '']
+        if calc_gains:
+            for suffix, prefix in zip(controller_suffixes, controller_prefixes):
+                if getattr(self, 'K' + suffix, None) is not None and getattr(self, 'L' + suffix, None) is not None:
+                    self.calculate_gains(self.A, self.B, self.C, tune_R=tune_gains[0], tune_RN=tune_gains[1], prefix=prefix)
+        else:
+            for suffix, prefix in zip(controller_suffixes, controller_prefixes):
+                if getattr(self, 'K' + suffix, None) is not None and getattr(self, 'L' + suffix, None) is not None:
+                    self.set_gains(getattr(self, 'K' + suffix), getattr(self, 'L' + suffix), prefix=prefix)
 
-        #Set gains for base controller (Not used for 2 sensor channel controllers)
-        if K_vals[0] is not None and L_vals[0] is not None:
-            self.set_gains(K_vals[0], L_vals[0], '')
+        # if calc_gains:
+        #     self.calculate_gains(self.A, self.B, self.C, tune_R=tune_R, tune_RN=tune_RN, prefix=prefix)
+        # #Set gains for base controller (Not used for 2 sensor channel controllers)
+        # if K_vals[0] is not None and L_vals[0] is not None:
+        #     self.set_gains(K_vals[0], L_vals[0], '')
 
-        #Set gains for each controller
-        controller_prefixes = ['aud_', 'som_']
-        for K_val, L_val, Kf_val, tune_R, tune_RN, prefix in zip(K_vals, L_vals, Kf_vals, tune_Rs, tune_RNs, controller_prefixes):
-            if K_val is not None and L_val is not None:
-                self.set_gains(K_val, L_val, Kf_val, prefix)
-            else:
-                # Use appropriate C matrix for each channel
-                C_channel = self.C_aud if prefix == 'aud_' else self.C_som if prefix == 'som_' else self.C
-                K, L = self.calculate_gains(self.A, self.B, C_channel, tune_R=tune_R, tune_RN=tune_RN, prefix=prefix)
-                self.set_gains(K, L, Kf_val, prefix)
-                print(f'{prefix}K: {K}')
-                print(f'{prefix}L: {L}')
-                print(f'{prefix}Kf: {Kf_val}')
+        # #Set gains for each controller
+        # controller_prefixes = ['aud_', 'som_']
+        # for K_val, L_val, Kf_val, tune_R, tune_RN, prefix in zip(K_vals, L_vals, Kf_vals, tune_Rs, tune_RNs, controller_prefixes):
+        #     if K_val is not None and L_val is not None:
+        #         self.set_gains(K_val, L_val, Kf_val, prefix)
+        #     else:
+        #         # Use appropriate C matrix for each channel
+        #         C_channel = self.C_aud if prefix == 'aud_' else self.C_som if prefix == 'som_' else self.C
+        #         K, L = self.calculate_gains(self.A, self.B, C_channel, tune_R=tune_R, tune_RN=tune_RN, prefix=prefix)
+        #         self.set_gains(K, L, Kf_val, prefix)
+        #         print(f'{prefix}K: {K}')
+        #         print(f'{prefix}L: {L}')
+        #         print(f'{prefix}Kf: {Kf_val}')
 
         
 

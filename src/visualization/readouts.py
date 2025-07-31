@@ -3,24 +3,27 @@ from datetime import datetime
 import numpy as np
 from pitch_pert_calibration.param_configs import PARAM_CONFIGS, PARAM_BOUNDS, PARAM_NULL_VALUES
 
-def calibration_info_pack(params_obj, cal_only=False, print_opt=['print'], custom_label=''):
+class BlankParamsObject:
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+
+def calibration_info_pack(params_obj, cal_only=False, print_opt=['print'], custom_label='', null_values=False):
     if params_obj.system_type == 'DIVA':
-        param_config = get_params_for_implementation(params_obj.system_type, params_obj.kearney_name)
+        param_config = get_params_for_implementation(params_obj.system_type, params_obj.kearney_name, null_values=null_values)
         print('param_config', param_config)
     elif params_obj.system_type == 'Template':
-        param_config = get_params_for_implementation(params_obj.system_type, arb_name=params_obj.arb_name)
+        param_config = get_params_for_implementation(params_obj.system_type, arb_name=params_obj.arb_name, null_values=null_values)
         print('param_config', param_config)
     else:
         param_config = get_params_for_implementation(params_obj.system_type)
-        print('WARNING:Unlisted system type')
+        print('WARNING: Unlisted system type')
     param_bounds = get_bounds_for_params(params_obj.system_type, param_config)
     
-    if cal_only:
-        current_params = get_current_params(params_obj, param_config, cal_only=cal_only)
-        x0 = get_init_values_for_params(current_params, param_config)
-    else:
-        current_params = get_current_params(params_obj, param_config, cal_only=cal_only)
-        x0 = get_init_values_for_params(params_obj, param_config)
+    current_params = get_current_params(params_obj, param_config, cal_only=cal_only, null_values=null_values)
+    x0 = get_init_values_for_params(current_params, param_config)
+
     
     if 'print' in print_opt:
         print(f'====INFO {custom_label}====')
@@ -33,27 +36,31 @@ def calibration_info_pack(params_obj, cal_only=False, print_opt=['print'], custo
     
     return param_config, param_bounds, x0, current_params
 
-def get_current_params(params_obj, param_config, cal_only=False, null_values=False):
+def get_current_params(params_obj, param_config, cal_only=False, null_values=False, params=None):
     current_params = {}
-    for param_name in param_config:
-        if hasattr(params_obj, param_name):
-            current_params[param_name] = getattr(params_obj, param_name)
+    
     if cal_only:
         if params_obj.system_type == 'DIVA':
             params_for_cal = get_params_for_implementation(params_obj.system_type, params_obj.kearney_name)
         elif params_obj.system_type == 'Template':
-            params_for_cal = get_params_for_implementation(params_obj.system_type, arb_name=params_obj.arb_name)
+            params_for_cal = get_params_for_implementation(params_obj.system_type, arb_name=params_obj.arb_name, null_values=null_values)
         else:
             params_for_cal = get_params_for_implementation(params_obj.system_type)
-            print('WARNING:Unlisted system type')
+            print('WARNING: Unlisted system type')
+        param_config = params_for_cal
 
-        for param_name in params_for_cal:
-            if hasattr(params_obj, param_name):
-                current_params[param_name] = getattr(params_obj, param_name)
-    if null_values:
-        for param_name in param_config:
-            if param_name not in current_params:
-                current_params[param_name] = PARAM_NULL_VALUES[params_obj.system_type][param_name]
+    if params is None:
+            params = params_obj
+            print('Only one parameter source provided')
+    print(f'get_current_params using: {params}')
+    for param_name in param_config:
+        if hasattr(params, param_name):
+            current_params[param_name] = getattr(params, param_name)
+            print(f'Listed {param_name}: {current_params[param_name]}')
+        else:
+            current_params[param_name] = PARAM_NULL_VALUES[params_obj.system_type][param_name]
+            print(f'Null {param_name}: {current_params[param_name]}')
+
     return current_params
 
 def get_init_values_for_params(params_obj, params_list):
@@ -85,11 +92,21 @@ def get_params_for_implementation(system_type, kearney_name=None, arb_name=None,
     elif system_type == 'Template':
         if null_values==True:
             print(f"Using null values for {arb_name}")
-            return config['param_sets'].get(arb_name, [])
+            
+            config_params = config['param_sets'].get('all', [])
+            print(f"config_params: {config_params}")
+            return config_params
         else:
             print(f"Using {arb_name} values")
-            return config['param_sets'].get(arb_name, [])
-            
+            config_params = config['param_sets'].get(arb_name, [])
+            print(f"config_params: {config_params}")
+            return config_params
+        # if null_values:
+        #     print('Using null values for params:')
+        #     for param_name in param_config:
+        #         if param_name not in current_params:
+        #             current_params[param_name] = PARAM_NULL_VALUES[params_obj.system_type][param_name]
+        #             print(f'{param_name}: {current_params[param_name]}')
             
     else:
         return config.get('params', [])
