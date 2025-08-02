@@ -364,7 +364,7 @@ class PitchPertCalibrator:
                 elite_fraction = 0.1
                 replacement_fraction = 0.3
 
-                elite_size = int(num_particles * elite_fraction)
+                elite_size = max(1, int(num_particles * elite_fraction))
                 replacement_size = int(num_particles * replacement_fraction)
                 regeneration_size = num_particles - elite_size - replacement_size
 
@@ -676,7 +676,7 @@ class PitchPertCalibrator:
                 param_name: value
                 for param_name, value in zip(config, optimized_params)
             }
-            # Now you can use optimized_params_dict[param_name] to access values by name
+
             for param_name in config:  
                 if hasattr(self.params_obj, param_name):
                     setattr(self.params_obj, param_name, optimized_params_dict[param_name])
