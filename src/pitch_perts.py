@@ -23,9 +23,10 @@ fig_save_path = path_obj.fig_save_path
 data_path = path_obj.data_path
 print('data_path', data_path)
 
-calibrate_opt = 'Particle Swarm'
-
 params_obj = get_params()
+calibrate_opt = params_obj.cal_set_dict['fit_method']
+print('calibrate_opt', calibrate_opt)
+
 if params_obj.system_type == 'DIVA':
     system_choice = 'DIVA'
     units = 'multiplier'
@@ -101,9 +102,9 @@ if calibrate_opt == 'Standard':
 
     # Run the calibration
     cal_params, mse_history = calibrator.calibrate(
-        max_iterations=400,
-        learning_rate=0.01,
-        tolerance=1e-6
+        max_iterations=params_obj.cal_set_dict['max_iterations'],
+        learning_rate=params_obj.cal_set_dict['learning_rate'],
+        tolerance=params_obj.cal_set_dict['tolerance']
     )
 
     print('mse_history', mse_history)
@@ -128,10 +129,10 @@ elif calibrate_opt == 'Particle Swarm':
     )
 
     cal_params, mse_history, run_dir = calibrator.particle_swarm_calibrate(
-        num_particles=1000,
-        max_iters=3,
-        convergence_tol=0.01,
-        runs=1,
+        num_particles=params_obj.cal_set_dict['particle_size'],
+        max_iters=params_obj.cal_set_dict['iterations'],
+        convergence_tol=params_obj.cal_set_dict['tolerance'],
+        runs=params_obj.cal_set_dict['runs'],
         log_interval=20,  # Log every 20 iterations
         save_interval=100,  # Save intermediate results every 100 iterations
         output_dir=None  # Uses default output directory
@@ -172,8 +173,8 @@ if system_choice == 'Relative':
     #Run simulation with calibrated params (Specify Gains)
         # Convert ParamsObject to dictionary for Controller
     
-    param_config = get_params_for_implementation(cal_params.system_type, arb_name=cal_params.arb_name, null_values=True)
-    params_dict = get_current_params(cal_params, param_config, cal_only=False, null_values=True)
+    param_config = get_params_for_implementation(cal_params.system_type, arb_name=cal_params.arb_name, null_values=params_obj.cal_set_dict['null_values'])
+    params_dict = get_current_params(cal_params, param_config, cal_only=False, null_values=params_obj.cal_set_dict['null_values'])
     
     system = Controller(
                 sensor_processor=RelativeSensorProcessor(), 
@@ -190,8 +191,8 @@ if system_choice == 'Relative':
     #system.simulate_with_1sensor(delta_t_s=sensor_delay_aud, delta_t_a=actuator_delay)
 elif system_choice == 'Absolute':
     # Convert ParamsObject to dictionary for Controller
-    param_config = get_params_for_implementation(cal_params.system_type, arb_name=cal_params.arb_name, null_values=True)
-    params_dict = get_current_params(cal_params, param_config, cal_only=False, null_values=True)
+    param_config = get_params_for_implementation(cal_params.system_type, arb_name=cal_params.arb_name, null_values=params_obj.cal_set_dict['null_values'])
+    params_dict = get_current_params(cal_params, param_config, cal_only=False, null_values=params_obj.cal_set_dict['null_values'])
     
     system = Controller(
                 sensor_processor=AbsoluteSensorProcessor(), 

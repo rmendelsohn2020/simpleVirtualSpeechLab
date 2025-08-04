@@ -79,6 +79,21 @@ def get_params():
         trial_ID = participant_ID
     else:
         trial_ID = config_expt['data']['trial_ID']  
+    fit_method = config_expt['calibration']['fit_method']
+    null_values = config_expt['calibration']['null_values']
+    if fit_method == 'Particle Swarm' or fit_method == 'Pyswarms':
+        tolerance = config_expt['calibration']['tolerance']
+        particle_size = config_expt['calibration']['particle_size']
+        iterations = config_expt['calibration']['iterations']
+        runs = config_expt['calibration']['runs']
+        cal_set_dict = {'fit_method': fit_method, 'tolerance': tolerance, 'particle_size': particle_size, 'iterations': iterations, 'runs': runs, 'null_values': null_values}
+    elif config_expt['calibration']['fit_method'] == 'Standard':
+        max_iterations = config_expt['calibration']['max_iterations']
+        learning_rate = config_expt['calibration']['learning_rate']
+        tolerance = config_expt['calibration']['tolerance']
+        cal_set_dict = {'fit_method': fit_method, 'tolerance': tolerance, 'max_iterations': max_iterations, 'learning_rate': learning_rate, 'null_values': null_values}
+    else:
+        cal_set_dict = {'fit_method': fit_method, 'null_values': null_values}
 
     duration = config_expt['simulation']['duration']
     dt = config_expt['simulation']['sec_per_step']
@@ -114,7 +129,7 @@ def get_params():
         # tune_Rs = config_expt['starting_params']['system']['tune_Rs']
         # tune_RNs = config_expt['starting_params']['system']['tune_RNs']
 
-        return type('ParamsObject', (), {'trace_type': trace_type, 'participant_ID': participant_ID, 'trial_ID': trial_ID, 'duration': duration, 'dt': dt, 'system_type': system_type, 'ref_type': ref_type, 'pert_type': pert_type, 'pert_mag': pert_mag, 'pert_onset': pert_onset, 'pert_duration': pert_duration, 'ramp_up_duration': ramp_up_duration, 'ramp_down_duration': ramp_down_duration, 'actuator_delay': actuator_delay, 'sensor_delay_aud': sensor_delay_aud, 'sensor_delay_som': sensor_delay_som, 'A': A, 'B': B, 'C_aud': C_aud, 'C_som': C_som, 'K_aud': K_aud, 'L_aud': L_aud, 'Kf_aud': Kf_aud, 'K_som': K_som, 'L_som': L_som, 'Kf_som': Kf_som, 'arb_name': arb_name})
+        return type('ParamsObject', (), {'trace_type': trace_type, 'participant_ID': participant_ID, 'trial_ID': trial_ID, 'duration': duration, 'dt': dt, 'system_type': system_type, 'ref_type': ref_type, 'pert_type': pert_type, 'pert_mag': pert_mag, 'pert_onset': pert_onset, 'pert_duration': pert_duration, 'ramp_up_duration': ramp_up_duration, 'ramp_down_duration': ramp_down_duration, 'actuator_delay': actuator_delay, 'sensor_delay_aud': sensor_delay_aud, 'sensor_delay_som': sensor_delay_som, 'A': A, 'B': B, 'C_aud': C_aud, 'C_som': C_som, 'K_aud': K_aud, 'L_aud': L_aud, 'Kf_aud': Kf_aud, 'K_som': K_som, 'L_som': L_som, 'Kf_som': Kf_som, 'arb_name': arb_name, 'cal_set_dict': cal_set_dict})
     elif system_type == 'DIVA':
         kearney_name = config_expt['diva_starting_params']['kearney_name']
         tau_A = config_expt['diva_starting_params']['delays']['tau_A'] #D1-D15
@@ -129,4 +144,4 @@ def get_params():
         alpha_Av = config_expt['diva_starting_params']['gains']['alpha_Av']
         alpha_Sv = config_expt['diva_starting_params']['gains']['alpha_Sv']
 
-        return type('DivaParamsObject', (), {'trace_type': trace_type, 'participant_ID': participant_ID, 'trial_ID': trial_ID, 'duration': duration, 'dt': dt, 'system_type': system_type, 'ref_type': ref_type, 'pert_type': pert_type, 'pert_mag': pert_mag, 'pert_onset': pert_onset, 'pert_duration': pert_duration, 'ramp_up_duration': ramp_up_duration, 'ramp_down_duration': ramp_down_duration, 'kearney_name': kearney_name, 'tau_A': tau_A, 'tau_S': tau_S, 'tau_As': tau_As, 'tau_Ss': tau_Ss, 'alpha_A': alpha_A, 'alpha_S': alpha_S, 'alpha_As': alpha_As, 'alpha_Ss': alpha_Ss, 'alpha_Av': alpha_Av, 'alpha_Sv': alpha_Sv})
+        return type('DivaParamsObject', (), {'trace_type': trace_type, 'participant_ID': participant_ID, 'trial_ID': trial_ID, 'duration': duration, 'dt': dt, 'system_type': system_type, 'ref_type': ref_type, 'pert_type': pert_type, 'pert_mag': pert_mag, 'pert_onset': pert_onset, 'pert_duration': pert_duration, 'ramp_up_duration': ramp_up_duration, 'ramp_down_duration': ramp_down_duration, 'kearney_name': kearney_name, 'tau_A': tau_A, 'tau_S': tau_S, 'tau_As': tau_As, 'tau_Ss': tau_Ss, 'alpha_A': alpha_A, 'alpha_S': alpha_S, 'alpha_As': alpha_As, 'alpha_Ss': alpha_Ss, 'alpha_Av': alpha_Av, 'alpha_Sv': alpha_Sv, 'cal_set_dict': cal_set_dict})

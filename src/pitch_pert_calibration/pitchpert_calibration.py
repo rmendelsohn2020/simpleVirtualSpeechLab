@@ -135,6 +135,7 @@ class PitchPertCalibrator:
                 timeseries=self.T_sim
             )
             
+       
             # Run simulation
             system.simulate_with_2sensors(
                 delta_t_s_aud=int(self.current_params['sensor_delay_aud']),
@@ -149,7 +150,7 @@ class PitchPertCalibrator:
         # plt.plot(timeseries_truncated, system_response_truncated)
         # plt.plot(timeseries_truncated, self.target_response)
         # plt.show()
-        return system.mse(system_response_truncated, self.target_response)
+        return system.mse(system_response_truncated, self.target_response, check_stability=True)
 
     def callback_function(self, xk, *args):
         """
@@ -692,7 +693,6 @@ class PitchPertCalibrator:
         elif self.params_obj.system_type == 'Template':
             print('self.params_obj.arb_name', self.params_obj.arb_name)
             config = get_params_for_implementation(self.params_obj.system_type, arb_name=self.params_obj.arb_name)
-            null_values = True
         else:
             print('WARNING: Unlisted system type')
         if type(params) != type(self.params_obj):
@@ -704,7 +704,7 @@ class PitchPertCalibrator:
         else:
             temp_params = params
             
-        current_params= get_current_params(self.params_obj, config, cal_only=True, null_values=null_values, params=temp_params)
+        current_params= get_current_params(self.params_obj, config, cal_only=True, null_values=self.params_obj.cal_set_dict['null_values'], params=temp_params)
         
         self.current_params = current_params
         

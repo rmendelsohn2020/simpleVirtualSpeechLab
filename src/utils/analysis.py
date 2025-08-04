@@ -8,7 +8,11 @@ class AnalysisMixin:
         sim_rmse = np.sqrt(sim_mse)
         return sim_rmse 
     
-    def mse(self, system_response, target_response):
+    def mse(self, system_response, target_response, check_stability=False):
+        if check_stability:
+            if np.any(np.abs(system_response) > 1e6):
+                return np.inf
+            
         sim_dif = system_response - target_response
         sim_dif_sq = np.sum(sim_dif**2)
         sim_mse = sim_dif_sq / self.time_length

@@ -8,20 +8,8 @@ class ControlSystem:
 
          #Input parameters
         print('ControlSystem params: ', params)
-        if hasattr(params, 'items'):
-            # params is a dictionary
-            for param_name, value in params.items():
-                setattr(self, param_name, value)
-        else:
-            # params is an object with attributes
-            for param_name in dir(params):
-                if not param_name.startswith('_'):  # Skip private attributes
-                    try:
-                        value = getattr(params, param_name)
-                        if not callable(value):  # Skip methods
-                            setattr(self, param_name, value)
-                    except:
-                        pass  # Skip attributes that can't be accessed
+        for param_name, value in params.items():
+            setattr(self, param_name, value)
         print('dist_type: ', dist_type)
         # self.A = input_A
         # self.B = input_B

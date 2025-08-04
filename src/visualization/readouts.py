@@ -9,7 +9,7 @@ class BlankParamsObject:
             setattr(self, key, value)
 
 
-def calibration_info_pack(params_obj, cal_only=False, print_opt=['print'], custom_label='', null_values=False):
+def calibration_info_pack(params_obj, cal_only=False, print_opt=['print'], custom_label='', null_values=None):
     if params_obj.system_type == 'DIVA':
         param_config = get_params_for_implementation(params_obj.system_type, params_obj.kearney_name, null_values=null_values)
         print('param_config', param_config)
@@ -36,7 +36,7 @@ def calibration_info_pack(params_obj, cal_only=False, print_opt=['print'], custo
     
     return param_config, param_bounds, x0, current_params
 
-def get_current_params(params_obj, param_config, cal_only=False, null_values=False, params=None):
+def get_current_params(params_obj, param_config, cal_only=False, null_values=None, params=None):
     current_params = {}
     
     if cal_only:
@@ -57,9 +57,14 @@ def get_current_params(params_obj, param_config, cal_only=False, null_values=Fal
         if hasattr(params, param_name):
             current_params[param_name] = getattr(params, param_name)
             print(f'Listed {param_name}: {current_params[param_name]}')
-        else:
+        elif null_values=='null':
             current_params[param_name] = PARAM_NULL_VALUES[params_obj.system_type][param_name]
             print(f'Null {param_name}: {current_params[param_name]}')
+        elif null_values=='expt config':
+            current_params[param_name] = getattr(params_obj, param_name)
+            print(f'Expt config {param_name}: {current_params[param_name]}')
+        else:
+            print('WARNING: Unlisted null_values option')
 
     return current_params
 
@@ -71,7 +76,7 @@ def get_bounds_for_params(system_type, param_names):
     bounds_config = PARAM_BOUNDS.get(system_type, {})
     return [bounds_config.get(param_name, (0, 1)) for param_name in param_names]
 
-def get_params_for_implementation(system_type, kearney_name=None, arb_name=None, null_values=False):
+def get_params_for_implementation(system_type, kearney_name=None, arb_name=None, null_values=None):
     """
     Get the appropriate parameter list for a given system type and implementation.
     
@@ -90,7 +95,7 @@ def get_params_for_implementation(system_type, kearney_name=None, arb_name=None,
     if system_type == 'DIVA':
         return config['param_sets'].get(kearney_name, [])
     elif system_type == 'Template':
-        if null_values==True:
+        if null_values is not None:
             print(f"Using null values for {arb_name}")
             
             config_params = config['param_sets'].get('all', [])
