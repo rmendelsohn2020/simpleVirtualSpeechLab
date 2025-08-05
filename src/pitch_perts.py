@@ -152,9 +152,25 @@ elif calibrate_opt == 'Particle Swarm':
 
     # Save optimized parameters to the timestamped folder
     readout_optimized_params(cal_params, sensor_delay_aud, sensor_delay_som, actuator_delay, output_dir=run_dir)
-elif calibrate_opt == 'DIVA':
-    cal_params = params_obj
-    print('DIVA calibration not yet implemented')
+elif calibrate_opt == 'PySwarms':
+    calibrator = PitchPertCalibrator(
+        params_obj=params_obj,
+        target_response=target_response,
+        pert_signal=pert_signal,
+        T_sim=T_sim,
+        truncate_start=truncate_start,
+        truncate_end=truncate_end,
+        sensor_processor=sensor_processor
+    )
+    cal_params, mse_history, run_dir = calibrator.pyswarms_calibrate(
+        num_particles=params_obj.cal_set_dict['particle_size'],
+        max_iters=params_obj.cal_set_dict['iterations'],
+        convergence_tol=params_obj.cal_set_dict['tolerance'],
+        runs=params_obj.cal_set_dict['runs'],
+        log_interval=20,  # Log every 20 iterations
+        save_interval=100,  # Save intermediate results every 100 iterations
+        output_dir=None  # Uses default output directory
+    )
 else:
     cal_params = params_obj
 

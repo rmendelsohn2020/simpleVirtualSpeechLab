@@ -189,7 +189,9 @@ PARAM_CONFIGS = {
                 'A',
                 'B',
                 'C_aud',
-                'C_som'
+                'K_aud',
+                'K_som',
+                'sensor_delay_aud'
             ]
 
         }

@@ -6,6 +6,8 @@ import os
 import json
 from datetime import datetime
 import random
+import pyswarms as ps
+from pyswarms.utils.functions import single_obj as fx
 from controllers.base import ControlSystem
 from controllers.implementations import Controller, AbsoluteSensorProcessor, RelativeSensorProcessor
 from utils.analysis import AnalysisMixin
@@ -448,6 +450,198 @@ class PitchPertCalibrator:
         
         # Return the optimized parameters, mse history, and run directory
         return self.params_obj, best_overall_rmse, run_dir
+
+    def pyswarms_calibrate(self, num_particles=10000, max_iters=1000, convergence_tol=0.01, runs=10, 
+                            log_interval=10, save_interval=50, output_dir=None):
+        """
+        PySwarms calibration with comprehensive logging and monitoring.
+        
+        Args:
+            num_particles: Number of particles in the swarm
+            max_iters: Maximum iterations per run
+            convergence_tol: Convergence tolerance
+            runs: Number of independent runs
+            log_interval: How often to log progress (iterations)
+            save_interval: How often to save intermediate results (iterations)
+            output_dir: Directory to save outputs (if None, uses default)
+            
+        Returns:
+            tuple: (optimized_params, mse_history, run_dir) where run_dir is the timestamped output directory
+        """
+        import os
+        import json
+        from datetime import datetime
+        import matplotlib
+        matplotlib.use('Agg')  # Use non-interactive backend for SSH
+        
+        # Setup output directory
+        if output_dir is None:
+            from utils.get_configs import get_paths
+            path_obj = get_paths()
+            output_dir = path_obj.fig_save_path
+        
+        # Create timestamped output directory
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        run_dir = os.path.join(output_dir, f"pyswarms_run_{timestamp}")
+        os.makedirs(run_dir, exist_ok=True)
+        
+        # Setup logging
+        log_file = os.path.join(run_dir, "optimization_log.txt")
+        progress_file = os.path.join(run_dir, "progress_history.json")
+        
+        def log_message(message, print_to_console=True):
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            log_entry = f"[{timestamp}] {message}"
+            with open(log_file, 'a') as f:
+                f.write(log_entry + '\n')
+            if print_to_console:
+                print(log_entry)
+
+        # Initialize tracking variables 
+        param_config, bounds, x0, current_params = calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='PySwarms', null_values=False)
+        bounds = np.array(bounds)  # Convert to numpy array for indexing
+        print('bounds', bounds)
+        
+        # Convert bounds format for PySwarms: (lower_bounds, upper_bounds)
+        lower_bounds = bounds[:, 0]  # First column contains lower bounds
+        upper_bounds = bounds[:, 1]  # Second column contains upper bounds
+        pyswarms_bounds = (lower_bounds, upper_bounds)
+        print('pyswarms_bounds format:', pyswarms_bounds)
+        
+        num_params = len(bounds)
+        best_overall_rmse = np.inf
+        best_overall_params = None
+        
+        # Progress tracking
+        progress_data = {
+            'runs': [],
+            'overall_best_rmse': [],
+            'overall_best_params': [],
+            'run_summaries': []
+        }
+        
+        log_message(f"Starting PySwarms optimization with {runs} runs", True)
+        log_message(f"Parameters: particles={num_particles}, max_iters={max_iters}, convergence_tol={convergence_tol}", True)
+        log_message(f"Output directory: {run_dir}", True)
+        
+        start_time = datetime.now()
+        
+        for run in range(runs):
+            run_start_time = datetime.now()
+            log_message(f"Starting run {run + 1}/{runs}", True)
+
+            # PySwarms options dictionary
+            options = {
+                'c1': 0.5,  # cognitive parameter
+                'c2': 0.3,  # social parameter
+                'w': 0.9,   # inertia weight
+                'k': 3,     # number of neighbors for topology
+                'p': 2      # p-norm for distance calculation
+            }
+            
+            # Initialize PySwarms optimizer
+            optimizer = ps.single.GlobalBestPSO(
+                n_particles=num_particles,
+                dimensions=num_params,
+                options=options,
+                bounds=pyswarms_bounds
+            )
+            
+            # Run-specific progress tracking
+            run_progress = {
+                'run_number': run + 1,
+                'iterations': [],
+                'best_rmse_history': [],
+                'mean_rmse_history': [],
+                'std_rmse_history': [],
+                'convergence_info': {
+                    'converged': False,
+                    'iteration': max_iters,
+                    'reason': 'Maximum iterations reached'
+                }
+            }
+            
+            # Progress tracking will be done after optimization completes
+            # since PySwarms doesn't support callbacks in the same way
+            
+            # Run optimization
+            best_cost, best_pos = optimizer.optimize(
+                self.objective_function,
+                iters=max_iters,
+                verbose=False
+            )
+            
+            # Extract progress data from optimizer
+            if hasattr(optimizer, 'cost_history') and optimizer.cost_history:
+                for i, costs in enumerate(optimizer.cost_history):
+                    iteration = i + 1
+                    best_cost_iter = np.min(costs)
+                    mean_cost_iter = np.mean(costs)
+                    std_cost_iter = np.std(costs)
+                    
+                    # Track progress
+                    run_progress['iterations'].append(iteration)
+                    run_progress['best_rmse_history'].append(float(best_cost_iter))
+                    run_progress['mean_rmse_history'].append(float(mean_cost_iter))
+                    run_progress['std_rmse_history'].append(float(std_cost_iter))
+                    
+                    # Log progress periodically
+                    if iteration % log_interval == 0:
+                        log_message(f"Run {run + 1}, Iter {iteration}/{max_iters}: Best RMSE = {best_cost_iter:.6f}, "
+                                f"Mean RMSE = {mean_cost_iter:.6f}", False)
+                    
+                    # Save intermediate results periodically
+                    if iteration % save_interval == 0:
+                        self._save_intermediate_results(run_dir, run, iteration-1, optimizer.best_pos, best_cost_iter, 
+                                                    optimizer.pos, costs, progress_data)
+            
+            # Run completed
+            run_end_time = datetime.now()
+            run_duration = (run_end_time - run_start_time).total_seconds()
+            
+            log_message(f"Run {run + 1} completed in {run_duration:.1f}s. Final RMSE: {best_cost:.6f}", True)
+            
+            # Update overall best if this run was better
+            if best_cost < best_overall_rmse:
+                best_overall_rmse = best_cost
+                best_overall_params = best_pos.copy()
+                log_message(f"New overall best RMSE: {best_overall_rmse:.6f}", True)
+            
+            # Store run summary
+            progress_data['runs'].append(run + 1)
+            progress_data['overall_best_rmse'].append(float(best_overall_rmse))
+            progress_data['overall_best_params'].append(best_overall_params.tolist() if best_overall_params is not None else None)
+            progress_data['run_summaries'].append({
+                'run_number': run + 1,
+                'final_rmse': float(best_cost),
+                'iterations_completed': len(run_progress['iterations']),
+                'duration_seconds': run_duration,
+                'convergence_info': run_progress['convergence_info']
+            })
+            
+            # Save run progress
+            with open(progress_file, 'w') as f:
+                json.dump(progress_data, f, indent=2)
+            
+            # Create run plots
+            self._create_run_plots(run_dir, run, run_progress)
+        
+        # All runs completed
+        end_time = datetime.now()
+        total_duration = (end_time - start_time).total_seconds()
+        
+        log_message(f"All runs completed in {total_duration:.1f}s", True)
+        log_message(f"Best overall RMSE: {best_overall_rmse:.6f}", True)
+        
+        # Apply the best parameters to the model
+        if best_overall_params is not None:
+            self.apply_optimized_params(best_overall_params)
+        
+        # Save final results
+        self._save_final_results(run_dir, best_overall_params, best_overall_rmse, progress_data)
+        
+        return best_overall_params, progress_data, run_dir
+            
 
     def quantized_uniform(self, low, high, precision, size=None):
         """

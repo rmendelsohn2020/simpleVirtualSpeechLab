@@ -81,7 +81,7 @@ def get_params():
         trial_ID = config_expt['data']['trial_ID']  
     fit_method = config_expt['calibration']['fit_method']
     null_values = config_expt['calibration']['null_values']
-    if fit_method == 'Particle Swarm' or fit_method == 'Pyswarms':
+    if fit_method == 'Particle Swarm' or fit_method == 'PySwarms':
         tolerance = config_expt['calibration']['tolerance']
         particle_size = config_expt['calibration']['particle_size']
         iterations = config_expt['calibration']['iterations']
