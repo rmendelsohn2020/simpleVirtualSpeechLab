@@ -171,6 +171,20 @@ elif calibrate_opt == 'PySwarms':
         save_interval=100,  # Save intermediate results every 100 iterations
         output_dir=None  # Uses default output directory
     )
+
+    print('mse_history', mse_history)
+    print(f'Results saved to: {run_dir}')
+
+    if params_obj.system_type == 'DIVA':
+        sensor_delay_aud = int(cal_params.tau_A)
+        sensor_delay_som = int(cal_params.tau_S)
+        actuator_delay = None
+    else:
+        sensor_delay_aud = int(cal_params.sensor_delay_aud)
+        sensor_delay_som = int(cal_params.sensor_delay_som)
+        actuator_delay = int(cal_params.actuator_delay)
+
+    readout_optimized_params(cal_params, sensor_delay_aud, sensor_delay_som, actuator_delay, output_dir=run_dir)
 else:
     cal_params = params_obj
 

@@ -6,6 +6,7 @@ import os
 import json
 from datetime import datetime
 import random
+import psutil
 import pyswarms as ps
 from pyswarms.utils.functions import single_obj as fx
 from controllers.base import ControlSystem
@@ -96,37 +97,49 @@ class PitchPertCalibrator:
         Objective function for parameter optimization.
         
         Args:
-            params: Flattened array of parameters to optimize
+            params: 2D array of parameters where each row represents a particle's parameters
         
         Returns:
-            MSE between simulation and target response
+            Array of MSE values (one per particle) for PySwarms, or single MSE for other optimizers
         """
-        print('params', params)
+        print('params shape:', params.shape if hasattr(params, 'shape') else 'not numpy array')
+        
+        # Handle PySwarms vectorized evaluation (multiple particles)
+        if isinstance(params, np.ndarray) and params.ndim == 2:
+            print(f'PySwarms vectorized evaluation: {params.shape[0]} particles, {params.shape[1]} parameters each')
+            costs = np.zeros(params.shape[0])
+            
+            for i in range(params.shape[0]):
+                particle_params = params[i]
+                print(f'Processing particle {i+1}/{params.shape[0]}')
+                costs[i] = self._evaluate_single_particle(particle_params)
+            
+            return costs
+        else:
+            # Handle single particle evaluation (for other optimizers or debugging)
+            print('Single particle evaluation')
+            return self._evaluate_single_particle(params)
+    
+    def _evaluate_single_particle(self, params):
+        """
+        Evaluate a single particle's parameters.
+        
+        Args:
+            params: 1D array of parameters for a single particle
+        
+        Returns:
+            MSE value for this particle
+        """
+        print('single particle params:', params)
         self._set_current_params(params)
         print('objective function current_params', self.current_params)
-        #param_config, bounds, x0, current_params = calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='Objective Function')
         
         if self.params_obj.system_type == 'DIVA':
             print('Diva sensor processor')
-
             system = DIVAController(self.sensor_processor, self.T_sim, self.params_obj.dt, self.pert_signal.signal, self.pert_signal.start_ramp_up, self.target_response, self.current_params)
             system.simulate(self.params_obj.kearney_name)
-    
-
         else:
             # Template system - use existing logic
-            # A = np.array([params[0]])
-            # B = np.array([params[1]])
-            # C_aud = np.array([params[2]])
-            # C_som = np.array([params[3]])
-            # K_aud = params[4]
-            # L_aud = params[5]
-            # K_som = params[6]
-            # L_som = params[7]
-            # sensor_delay_aud = params[8]
-            # sensor_delay_som = params[9]
-            # actuator_delay = params[10]
-            
             # Create system with current parameters
             system = Controller(
                 sensor_processor=self.sensor_processor, 
@@ -137,7 +150,6 @@ class PitchPertCalibrator:
                 timeseries=self.T_sim
             )
             
-       
             # Run simulation
             system.simulate_with_2sensors(
                 delta_t_s_aud=int(self.current_params['sensor_delay_aud']),
@@ -149,10 +161,10 @@ class PitchPertCalibrator:
         timeseries_truncated, system_response_truncated = truncate_data(
             self.T_sim, system.x, self.truncate_start, self.truncate_end
         )
-        # plt.plot(timeseries_truncated, system_response_truncated)
-        # plt.plot(timeseries_truncated, self.target_response)
-        # plt.show()
-        return system.mse(system_response_truncated, self.target_response, check_stability=True)
+        
+        mse = system.mse(system_response_truncated, self.target_response, check_stability=True)
+        print(f'Particle MSE: {mse}')
+        return mse
 
     def callback_function(self, xk, *args):
         """
@@ -567,10 +579,12 @@ class PitchPertCalibrator:
             # Run optimization
             best_cost, best_pos = optimizer.optimize(
                 self.objective_function,
+                #n_processes=psutil.cpu_count(logical=False)-2,
                 iters=max_iters,
                 verbose=False
             )
-            
+            print(run, 'best_cost', best_cost)
+            print(run, 'best_pos', best_pos)
             # Extract progress data from optimizer
             if hasattr(optimizer, 'cost_history') and optimizer.cost_history:
                 for i, costs in enumerate(optimizer.cost_history):
@@ -592,6 +606,11 @@ class PitchPertCalibrator:
                     
                     # Save intermediate results periodically
                     if iteration % save_interval == 0:
+                        print(run, 'iteration', iteration)
+                        print(run, 'optimizer.best_pos', optimizer.best_pos)
+                        print(run, 'best_cost_iter', best_cost_iter)
+                        print(run, 'optimizer.pos', optimizer.pos)
+                        print(run, 'costs', costs)
                         self._save_intermediate_results(run_dir, run, iteration-1, optimizer.best_pos, best_cost_iter, 
                                                     optimizer.pos, costs, progress_data)
             
@@ -640,7 +659,7 @@ class PitchPertCalibrator:
         # Save final results
         self._save_final_results(run_dir, best_overall_params, best_overall_rmse, progress_data)
         
-        return best_overall_params, progress_data, run_dir
+        return self.params_obj, best_overall_rmse, run_dir
             
 
     def quantized_uniform(self, low, high, precision, size=None):
@@ -889,12 +908,23 @@ class PitchPertCalibrator:
             config = get_params_for_implementation(self.params_obj.system_type, arb_name=self.params_obj.arb_name)
         else:
             print('WARNING: Unlisted system type')
+        
+        # Handle PySwarms parameter format - extract first row if 2D array
+        if isinstance(params, np.ndarray) and params.ndim > 1:
+            print(f'PySwarms detected: params shape {params.shape}, extracting first row')
+            params = params[0]  # Extract first row for single particle evaluation
+        
         if type(params) != type(self.params_obj):
             print('params is not the same type as params_obj')
-            temp_params = BlankParamsObject(**{
-                param_name: value
-                for param_name, value in zip(config, params)
-            })
+            # Create a dictionary with individual parameter values
+            param_dict = {}
+            for i, param_name in enumerate(config):
+                if i < len(params):
+                    param_dict[param_name] = params[i]
+                else:
+                    print(f'Warning: Parameter {param_name} at index {i} not found in params array of length {len(params)}')
+            
+            temp_params = BlankParamsObject(**param_dict)
         else:
             temp_params = params
             

@@ -5,10 +5,10 @@ data:
   trial_ID: 1
 
 calibration:
-  fit_method: 'Particle Swarm'
+  fit_method: 'PySwarms'
   tolerance: 0.001
   particle_size: 1000
-  iterations: 1
+  iterations: 10
   runs: 1
   null_values: 'expt config' # 'expt config', 'null', None (For parameters not used in fitting)
 
@@ -28,7 +28,7 @@ perturbation:
     down_duration: 0.250  # Duration of the ramp down in seconds
 
 starting_params:
-  arb_name: 'T6'
+  arb_name: 'all'
   delays:
     actuator: 3
     sensor:
