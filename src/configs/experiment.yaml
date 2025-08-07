@@ -7,10 +7,17 @@ data:
 calibration:
   fit_method: 'PySwarms'
   tolerance: 0.001
-  particle_size: 1000
+  particle_size: 10
   iterations: 10
   runs: 1
   null_values: 'expt config' # 'expt config', 'null', None (For parameters not used in fitting)
+
+  #PySwarms Parameters
+  c1: 0.5 #cognitive parameter
+  c2: 0.3 #social parameter
+  w: 0.9 #inertia weight
+  k: 3 #number of neighbors for topology
+  p: 2 #p-norm for distance calculation
 
 simulation:
   duration: 10.8  # Duration of each trial in seconds
@@ -28,7 +35,7 @@ perturbation:
     down_duration: 0.250  # Duration of the ramp down in seconds
 
 starting_params:
-  arb_name: 'all'
+  arb_name: 'T6'
   delays:
     actuator: 3
     sensor:

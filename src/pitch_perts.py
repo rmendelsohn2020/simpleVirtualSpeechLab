@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 import os
+import datetime
 
 from controllers.base import ControlSystem
 from controllers.implementations import Controller, AbsoluteSensorProcessor, RelativeSensorProcessor
@@ -101,7 +102,7 @@ if calibrate_opt == 'Standard':
     )
 
     # Run the calibration
-    cal_params, mse_history = calibrator.calibrate(
+    cal_params, mse_history, run_dir = calibrator.calibrate(
         max_iterations=params_obj.cal_set_dict['max_iterations'],
         learning_rate=params_obj.cal_set_dict['learning_rate'],
         tolerance=params_obj.cal_set_dict['tolerance']
@@ -116,6 +117,7 @@ if calibrate_opt == 'Standard':
         sensor_delay_som = int(cal_params.sensor_delay_som)
         actuator_delay = int(cal_params.actuator_delay)
 
+    
     readout_optimized_params(cal_params, sensor_delay_aud, sensor_delay_som, actuator_delay)
 elif calibrate_opt == 'Particle Swarm':
     calibrator = PitchPertCalibrator(
@@ -167,8 +169,8 @@ elif calibrate_opt == 'PySwarms':
         max_iters=params_obj.cal_set_dict['iterations'],
         convergence_tol=params_obj.cal_set_dict['tolerance'],
         runs=params_obj.cal_set_dict['runs'],
-        log_interval=20,  # Log every 20 iterations
-        save_interval=100,  # Save intermediate results every 100 iterations
+        log_interval=1,  
+        save_interval=100,  
         output_dir=None  # Uses default output directory
     )
 
@@ -187,6 +189,7 @@ elif calibrate_opt == 'PySwarms':
     readout_optimized_params(cal_params, sensor_delay_aud, sensor_delay_som, actuator_delay, output_dir=run_dir)
 else:
     cal_params = params_obj
+    run_dir = fig_save_path + '/Sim_Run_'+ datetime.now().strftime("%Y%m%d_%H%M%S")
 
     if params_obj.system_type == 'DIVA':
         sensor_delay_aud = int(cal_params.tau_A)
@@ -279,5 +282,5 @@ if __name__ == "__main__":
     # Use run_dir if available (from particle swarm), otherwise use default fig_save_path
     plot_output_dir = run_dir if calibrate_opt == 'Particle Swarm' and 'run_dir' in locals() else fig_save_path
     #system.plot_all_subplots('abs2sens', custom_sig='dist', fig_save_path=fig_save_path)
-    system.plot_data_overlay('abs2sens', target_response, pitch_pert_data, time_trunc=timeseries_truncated, resp_trunc=system_response_truncated, pitch_pert_truncated=aud_pert_truncated, output_dir=plot_output_dir)
+    system.plot_data_overlay('abs2sens', target_response, pitch_pert_data, time_trunc=timeseries_truncated, resp_trunc=system_response_truncated, pitch_pert_truncated=aud_pert_truncated, output_dir=run_dir)
 #system.plot_truncated(truncate_start, truncate_end)

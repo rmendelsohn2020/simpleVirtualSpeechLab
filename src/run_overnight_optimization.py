@@ -10,6 +10,7 @@ import signal
 import traceback
 from datetime import datetime
 import matplotlib
+
 matplotlib.use('Agg')  # Use non-interactive backend for SSH
 
 # Add src to path
@@ -17,6 +18,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from pitch_perts import *
 from utils.get_configs import get_paths
+from controllers.implementations import RelativeSensorProcessor, AbsoluteSensorProcessor, Controller
+from visualization.readouts import readout_optimized_params, get_current_params, get_params_for_implementation
 
 def signal_handler(signum, frame):
     """Handle interrupt signals gracefully."""
@@ -81,17 +84,15 @@ def main():
         # Run final simulation with optimized parameters
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Running final simulation with optimized parameters...")
         
+        param_config = get_params_for_implementation(cal_params.system_type, arb_name=cal_params.arb_name, null_values=params_obj.cal_set_dict['null_values'])
+        params_dict = get_current_params(cal_params, param_config, cal_only=False, null_values=params_obj.cal_set_dict['null_values'])
+        
         system = Controller(
             sensor_processor=RelativeSensorProcessor(), 
-            input_A=cal_params.A_init, 
-            input_B=cal_params.B_init, 
-            input_C=cal_params.C_aud_init, 
+            params=params_dict, 
             ref_type=params_obj.ref_type, 
             dist_custom=pert_signal.signal, 
             dist_type=['Auditory'], 
-            K_vals=[cal_params.K_aud_init, cal_params.K_som_init], 
-            L_vals=[cal_params.L_aud_init, cal_params.L_som_init], 
-            Kf_vals=[cal_params.Kf_aud_init, cal_params.Kf_som_init], 
             timeseries=T_sim
         )
         

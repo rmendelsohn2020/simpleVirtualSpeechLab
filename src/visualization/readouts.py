@@ -142,6 +142,8 @@ def readout_optimized_params(cal_params, sensor_delay_aud=None, sensor_delay_som
     else:
         title = title.format(kearney_name='')
 
+    
+
     if 'print' in format_opt:
         print(title)
         for param_name in params_list:
@@ -151,6 +153,9 @@ def readout_optimized_params(cal_params, sensor_delay_aud=None, sensor_delay_som
         print(f'sensor_delay_aud: {sensor_delay_aud}')
         print(f'sensor_delay_som: {sensor_delay_som}')
         print(f'actuator_delay: {actuator_delay}')
+
+   
+        
 
     if 'txt' in format_opt:
         now = datetime.now()

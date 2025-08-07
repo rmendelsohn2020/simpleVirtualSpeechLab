@@ -86,7 +86,15 @@ def get_params():
         particle_size = config_expt['calibration']['particle_size']
         iterations = config_expt['calibration']['iterations']
         runs = config_expt['calibration']['runs']
-        cal_set_dict = {'fit_method': fit_method, 'tolerance': tolerance, 'particle_size': particle_size, 'iterations': iterations, 'runs': runs, 'null_values': null_values}
+        if fit_method == 'Particle Swarm':
+            cal_set_dict = {'fit_method': fit_method, 'tolerance': tolerance, 'particle_size': particle_size, 'iterations': iterations, 'runs': runs, 'null_values': null_values}
+        elif fit_method == 'PySwarms':
+            c1 = config_expt['calibration']['c1']
+            c2 = config_expt['calibration']['c2']
+            w = config_expt['calibration']['w']
+            k = config_expt['calibration']['k']
+            p = config_expt['calibration']['p']
+            cal_set_dict = {'fit_method': fit_method, 'tolerance': tolerance, 'particle_size': particle_size, 'iterations': iterations, 'runs': runs, 'null_values': null_values, 'c1': c1, 'c2': c2, 'w': w, 'k': k, 'p': p}
     elif config_expt['calibration']['fit_method'] == 'Standard':
         max_iterations = config_expt['calibration']['max_iterations']
         learning_rate = config_expt['calibration']['learning_rate']

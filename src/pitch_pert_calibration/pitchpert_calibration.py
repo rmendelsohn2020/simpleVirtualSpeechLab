@@ -20,6 +20,8 @@ from controllers.simpleDIVAtest import Controller as DIVAController
 from controllers.simpleDIVAtest import get_sensor_processor
 from visualization.readouts import get_params_for_implementation, readout_optimized_params, get_current_params, calibration_info_pack, BlankParamsObject
 from utils.processing import make_jsonable_dict
+from pitch_pert_calibration.picklable_caltools import _initialize_global_data, _standalone_objective_function
+
 
 def get_perturbation_event_times(file_path, units='cents', epsilon=1e-10):
     df = pd.read_csv(file_path)
@@ -205,8 +207,9 @@ class PitchPertCalibrator:
             callback=self.callback_function
         )
         
+        run_dir = self.fig_save_path + '/Standard_Calibration'+ datetime.now().strftime("%Y%m%d_%H%M%S")
         # Apply optimized parameters to the model
-        self.apply_optimized_params(result.x)
+        self.apply_optimized_params(result.x, run_dir)
         
         print('Optimization completed:')
         print(f'Final MSE: {result.fun}')
@@ -217,7 +220,7 @@ class PitchPertCalibrator:
         
         plt.plot(self.mse_history)
         plt.show()
-        return self.params_obj, self.mse_history
+        return self.params_obj, self.mse_history, run_dir
     
     def particle_swarm_calibrate(self, num_particles=10000, max_iters=1000, convergence_tol=0.01, runs=10, 
                                 log_interval=10, save_interval=50, output_dir=None):
@@ -455,7 +458,7 @@ class PitchPertCalibrator:
         
         # Apply the best parameters to the model
         if best_overall_params is not None:
-            self.apply_optimized_params(best_overall_params)
+            self.apply_optimized_params(best_overall_params, run_dir)
         
         # Save final results
         self._save_final_results(run_dir, best_overall_params, best_overall_rmse, progress_data)
@@ -464,7 +467,7 @@ class PitchPertCalibrator:
         return self.params_obj, best_overall_rmse, run_dir
 
     def pyswarms_calibrate(self, num_particles=10000, max_iters=1000, convergence_tol=0.01, runs=10, 
-                            log_interval=10, save_interval=50, output_dir=None):
+                            log_interval=1, save_interval=50, output_dir=None):
         """
         PySwarms calibration with comprehensive logging and monitoring.
         
@@ -509,6 +512,17 @@ class PitchPertCalibrator:
             if print_to_console:
                 print(log_entry)
 
+        # Initialize global data for multiprocessing
+        _initialize_global_data(
+            self.params_obj,
+            self.target_response,
+            self.pert_signal,
+            self.T_sim,
+            self.truncate_start,
+            self.truncate_end,
+            self.sensor_processor
+        )
+
         # Initialize tracking variables 
         param_config, bounds, x0, current_params = calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='PySwarms', null_values=False)
         bounds = np.array(bounds)  # Convert to numpy array for indexing
@@ -535,6 +549,11 @@ class PitchPertCalibrator:
         log_message(f"Starting PySwarms optimization with {runs} runs", True)
         log_message(f"Parameters: particles={num_particles}, max_iters={max_iters}, convergence_tol={convergence_tol}", True)
         log_message(f"Output directory: {run_dir}", True)
+
+
+        log_message("Calibration Settings:", True)
+        for key, value in self.params_obj.cal_set_dict.items():
+            log_message(f"{key}: {value}", True)
         
         start_time = datetime.now()
         
@@ -544,11 +563,11 @@ class PitchPertCalibrator:
 
             # PySwarms options dictionary
             options = {
-                'c1': 0.5,  # cognitive parameter
-                'c2': 0.3,  # social parameter
-                'w': 0.9,   # inertia weight
-                'k': 3,     # number of neighbors for topology
-                'p': 2      # p-norm for distance calculation
+                'c1': self.params_obj.cal_set_dict['c1'],  # cognitive parameter
+                'c2': self.params_obj.cal_set_dict['c2'],  # social parameter
+                'w': self.params_obj.cal_set_dict['w'],   # inertia weight
+                'k': self.params_obj.cal_set_dict['k'],     # number of neighbors for topology
+                'p': self.params_obj.cal_set_dict['p']      # p-norm for distance calculation
             }
             
             # Initialize PySwarms optimizer
@@ -577,9 +596,10 @@ class PitchPertCalibrator:
             # since PySwarms doesn't support callbacks in the same way
             
             # Run optimization
+
             best_cost, best_pos = optimizer.optimize(
-                self.objective_function,
-                #n_processes=psutil.cpu_count(logical=False)-2,
+                _standalone_objective_function,  # Use standalone function instead of self.objective_function
+                n_processes=psutil.cpu_count(logical=False)-2,
                 iters=max_iters,
                 verbose=False
             )
@@ -654,7 +674,7 @@ class PitchPertCalibrator:
         
         # Apply the best parameters to the model
         if best_overall_params is not None:
-            self.apply_optimized_params(best_overall_params)
+            self.apply_optimized_params(best_overall_params, run_dir)
         
         # Save final results
         self._save_final_results(run_dir, best_overall_params, best_overall_rmse, progress_data)
@@ -870,7 +890,7 @@ class PitchPertCalibrator:
                        f"Duration={summary['duration_seconds']:.1f}s, "
                        f"Converged={'Yes' if summary['convergence_info']['converged'] else 'No'}\n")
 
-    def apply_optimized_params(self, optimized_params):
+    def apply_optimized_params(self, optimized_params, run_dir):
         """
         Apply optimized parameters to the model.
         
@@ -878,7 +898,7 @@ class PitchPertCalibrator:
             optimized_params: Array of optimized parameter values
         """
         print('START: apply_optimized_params')
-        readout_optimized_params(self.params_obj)
+        readout_optimized_params(self.params_obj, output_dir=run_dir)
         if optimized_params is not None:
             if self.params_obj.system_type == 'DIVA':
                 config = get_params_for_implementation(self.params_obj.system_type, kearney_name=self.params_obj.kearney_name)
@@ -894,7 +914,7 @@ class PitchPertCalibrator:
             for param_name in config:  
                 if hasattr(self.params_obj, param_name):
                     setattr(self.params_obj, param_name, optimized_params_dict[param_name])
-        readout_optimized_params(self.params_obj)
+        readout_optimized_params(self.params_obj, output_dir=run_dir)
         calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='After Applying Optimized Params')
         print('- END: apply_optimized_params')
 
