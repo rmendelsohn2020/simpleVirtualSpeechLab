@@ -192,8 +192,31 @@ PARAM_CONFIGS = {
                 'K_aud',
                 'K_som',
                 'sensor_delay_aud'
+            ],
+            'T7': [
+                'K_aud',
+                'K_som',
+                'L_aud',
+                'L_som'
+            ],
+            'T8': [
+                'A',
+                'B',
+                'C_aud',
+                'C_som',
+                'K_aud',
+                'K_som',
+                'L_aud',
+                'L_som'
+            ],
+            'T9': [
+                'A',
+                'B',
+                'C_aud',
+                'C_som',
+                'K_aud',
             ]
-
+            
         }
     }
 }

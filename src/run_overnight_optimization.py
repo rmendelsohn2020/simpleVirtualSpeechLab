@@ -8,7 +8,7 @@ import os
 import sys
 import signal
 import traceback
-from datetime import datetime
+from datetime import datetime  # This is correct
 import matplotlib
 
 matplotlib.use('Agg')  # Use non-interactive backend for SSH
@@ -16,96 +16,79 @@ matplotlib.use('Agg')  # Use non-interactive backend for SSH
 # Add src to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from pitch_perts import *
-from utils.get_configs import get_paths
-from controllers.implementations import RelativeSensorProcessor, AbsoluteSensorProcessor, Controller
-from visualization.readouts import readout_optimized_params, get_current_params, get_params_for_implementation
+# Import the main functionality from pitch_perts
+from pitch_perts import (
+    params_obj, target_response, pert_signal, T_sim, 
+    truncate_start, truncate_end, sensor_processor, 
+    system_choice, calibrate_opt, pitch_pert_data, fig_save_path,
+    run_calibration, run_simulation
+)
 
 def signal_handler(signum, frame):
     """Handle interrupt signals gracefully."""
     print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Received interrupt signal. Shutting down gracefully...")
     sys.exit(0)
 
-def main():
-    """Main function to run overnight optimization."""
-    # Setup signal handlers for graceful shutdown
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-    
-    # Get paths
-    path_obj = get_paths()
-    output_dir = path_obj.fig_save_path
-    
+def run_overnight_optimization():
+    """Run overnight optimization with enhanced settings and logging."""
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Starting overnight particle swarm optimization")
-    print(f"Output directory: {output_dir}")
+    print(f"Output directory: {fig_save_path}")
     
     try:
-        # Set calibration option to Particle Swarm
-        calibrate_opt = 'Particle Swarm'
+        # Override calibration settings for overnight runs
+        original_calibrate_opt = calibrate_opt
+        original_particle_size = params_obj.cal_set_dict.get('particle_size', 100)
+        original_iterations = params_obj.cal_set_dict.get('iterations', 1000)
+        original_runs = params_obj.cal_set_dict.get('runs', 10)
         
-        # Create calibrator with enhanced settings for overnight runs
-        calibrator = PitchPertCalibrator(
-            params_obj=params_obj,
-            target_response=target_response,
-            pert_signal=pert_signal,
-            T_sim=T_sim,
-            truncate_start=truncate_start,
-            truncate_end=truncate_end,
-            sensor_processor=RelativeSensorProcessor()
-        )
-
-        # Run optimization with conservative settings for overnight runs
+        # # Set conservative settings for overnight runs
+        # params_obj.cal_set_dict['particle_size'] = 10
+        # params_obj.cal_set_dict['iterations'] = 50
+        # params_obj.cal_set_dict['runs'] = 10
+        
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Using overnight settings:")
+        print(f"  - Particles: {params_obj.cal_set_dict['particle_size']} (original: {original_particle_size})")
+        print(f"  - Iterations: {params_obj.cal_set_dict['iterations']} (original: {original_iterations})")
+        print(f"  - Runs: {params_obj.cal_set_dict['runs']} (original: {original_runs})")
+        
+        # Run calibration using the shared function
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Starting particle swarm calibration...")
         
-        cal_params, mse_history, run_dir = calibrator.particle_swarm_calibrate(
-            num_particles=10,
-            max_iters=50,
-            convergence_tol=0.01,
-            runs=10,
-            log_interval=20,  # Log every 20 iterations
-            save_interval=100,  # Save intermediate results every 100 iterations
-            output_dir=output_dir
+        cal_params, mse_history, run_dir, sensor_delay_aud, sensor_delay_som, actuator_delay, pitch_pert_data = run_calibration(
+            original_calibrate_opt,
+            params_obj, 
+            target_response, 
+            pert_signal, 
+            T_sim, 
+            truncate_start, 
+            truncate_end, 
+            sensor_processor
         )
 
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Optimization completed successfully!")
         print(f"Final RMSE: {mse_history}")
         print(f"Results saved to: {run_dir}")
         
-        # Extract delays
-        sensor_delay_aud = int(cal_params.sensor_delay_aud)
-        sensor_delay_som = int(cal_params.sensor_delay_som)
-        actuator_delay = int(cal_params.actuator_delay)
-
-        # Save final results to the timestamped folder
-        readout_optimized_params(cal_params, sensor_delay_aud, sensor_delay_som, actuator_delay, output_dir=run_dir)
-        
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Final results saved successfully!")
-        
-        # Run final simulation with optimized parameters
+        # Run simulation using the shared function
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Running final simulation with optimized parameters...")
         
-        param_config = get_params_for_implementation(cal_params.system_type, arb_name=cal_params.arb_name, null_values=params_obj.cal_set_dict['null_values'])
-        params_dict = get_current_params(cal_params, param_config, cal_only=False, null_values=params_obj.cal_set_dict['null_values'])
-        
-        system = Controller(
-            sensor_processor=RelativeSensorProcessor(), 
-            params=params_dict, 
-            ref_type=params_obj.ref_type, 
-            dist_custom=pert_signal.signal, 
-            dist_type=['Auditory'], 
-            timeseries=T_sim
+        system, timeseries_truncated, system_response_truncated, aud_pert_truncated = run_simulation(
+            cal_params, 
+            pert_signal, 
+            T_sim, 
+            truncate_start, 
+            truncate_end, 
+            sensor_processor, 
+            system_choice, 
+            sensor_delay_aud, 
+            sensor_delay_som, 
+            actuator_delay, 
+            run_dir, 
+            pitch_pert_data
         )
         
-        system.simulate_with_2sensors(
-            delta_t_s_aud=sensor_delay_aud, 
-            delta_t_s_som=sensor_delay_som, 
-            delta_t_a=actuator_delay
-        )
-
-        # Create final plots and save to the timestamped folder
-        timeseries_truncated, system_response_truncated = truncate_data(T_sim, system.x, truncate_start, truncate_end)
-        aud_pert_truncated = truncate_data(T_sim, system.v_aud, truncate_start, truncate_end)[1]
-        
+        # Create final plots
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Creating final plots...")
         system.plot_data_overlay(
             'abs2sens', 
             target_response, 
@@ -119,6 +102,11 @@ def main():
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Final simulation and plots completed!")
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Overnight optimization run completed successfully!")
         
+        # Restore original settings
+        params_obj.cal_set_dict['particle_size'] = original_particle_size
+        params_obj.cal_set_dict['iterations'] = original_iterations
+        params_obj.cal_set_dict['runs'] = original_runs
+        
     except Exception as e:
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ERROR: Optimization failed!")
         print(f"Error details: {str(e)}")
@@ -126,7 +114,7 @@ def main():
         traceback.print_exc()
         
         # Save error information to the timestamped folder if available, otherwise to main output directory
-        error_dir = run_dir if 'run_dir' in locals() else output_dir
+        error_dir = run_dir if 'run_dir' in locals() else fig_save_path
         error_file = os.path.join(error_dir, f"optimization_error_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
         with open(error_file, 'w') as f:
             f.write(f"Optimization failed at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
@@ -136,6 +124,14 @@ def main():
         
         print(f"Error details saved to: {error_file}")
         sys.exit(1)
+
+def main():
+    """Main function to run overnight optimization."""
+    # Setup signal handlers for graceful shutdown
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
+    run_overnight_optimization()
 
 if __name__ == "__main__":
     main() 

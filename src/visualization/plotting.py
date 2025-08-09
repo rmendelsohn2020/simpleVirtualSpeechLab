@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import os
 from pitch_pert_calibration.pitchpert_dataprep import truncate_data
 
 # Configuration
@@ -47,6 +48,7 @@ class PlotMixin:
 
         if fig_save_path:
             #self.K_str = str(self.K1).replace('.', '_')
+            os.makedirs(fig_save_path, exist_ok=True)
             filename = f"{fig_save_path}/{arch}_plot_all_{self.ref_type}.png"
             plt.savefig(filename)
             print(f"Figure saved to {filename}")
@@ -141,6 +143,7 @@ class PlotMixin:
 
         if fig_save_path:
             self.K_str = str(self.K1).replace('.', '_')
+            os.makedirs(fig_save_path, exist_ok=True)
             filename = f"{fig_save_path}/{arch}_plot_transient_{self.ref_type}_K{self.K_str}.png"
             plt.savefig(filename)
             print(f"Figure saved to {filename}")
@@ -165,6 +168,7 @@ class PlotMixin:
 
         if fig_save_path:
             self.K_str = str(self.K1).replace('.', '_')
+            os.makedirs(fig_save_path, exist_ok=True)
             filename = f"{fig_save_path}/{arch}_compare_performance_{self.ref_type}_K{self.K_str}.png"
             plt.savefig(filename)
             print(f"Figure saved to {filename}")
@@ -206,6 +210,7 @@ class PlotMixin:
         if fig_save_path or output_dir:
             # Use output_dir if provided, otherwise use fig_save_path
             save_dir = output_dir if output_dir is not None else fig_save_path
+            os.makedirs(save_dir, exist_ok=True)
             filename = f"{save_dir}/{arch}_plot_data_overlay_{self.ref_type}.png"
             plt.savefig(filename)
             print(f"Figure saved to {filename}")
@@ -259,6 +264,7 @@ class PlotMixin:
         fig.suptitle(self.arch_title + ' Control System Simulation')
 
         if fig_save_path:
+            os.makedirs(fig_save_path, exist_ok=True)
             filename = f"{fig_save_path}/{arch}_plot_all_subplots_{self.ref_type}.png"
             plt.savefig(filename)
             print(f"Figure saved to {filename}")

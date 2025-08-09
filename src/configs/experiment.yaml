@@ -7,14 +7,14 @@ data:
 calibration:
   fit_method: 'PySwarms'
   tolerance: 0.001
-  particle_size: 10
-  iterations: 10
+  particle_size: 1000
+  iterations: 1000
   runs: 1
   null_values: 'expt config' # 'expt config', 'null', None (For parameters not used in fitting)
 
   #PySwarms Parameters
-  c1: 0.5 #cognitive parameter
-  c2: 0.3 #social parameter
+  c1: 0.4 #cognitive parameter
+  c2: 0.8 #social parameter
   w: 0.9 #inertia weight
   k: 3 #number of neighbors for topology
   p: 2 #p-norm for distance calculation
@@ -35,22 +35,22 @@ perturbation:
     down_duration: 0.250  # Duration of the ramp down in seconds
 
 starting_params:
-  arb_name: 'T6'
+  arb_name: 'all'
   delays:
     actuator: 3
     sensor:
       auditory: 30
       somatosensory: 3
   system:
-    A: [0.8]
-    B: [1.1]
+    A: [1]
+    B: [0.8]
     C_aud: 0.4
     C_som: 1
-    K_aud: 0.20
-    L_aud: 0.30
+    K_aud: 0.402553
+    L_aud: 0.08929
     Kf_aud: 0.35
-    K_som: 0.36002242
-    L_som: 0.40707844  
+    K_som: 0.15153
+    L_som: 0.150506 
     Kf_som: 0.35
 
 diva_starting_params:

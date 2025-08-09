@@ -680,6 +680,12 @@ class PitchPertCalibrator:
         self._save_final_results(run_dir, best_overall_params, best_overall_rmse, progress_data)
         
         return self.params_obj, best_overall_rmse, run_dir
+
+    def eval_only(self, params):
+        """
+        Evaluate the objective function only.
+        """
+        return self._evaluate_single_particle(params)
             
 
     def quantized_uniform(self, low, high, precision, size=None):
