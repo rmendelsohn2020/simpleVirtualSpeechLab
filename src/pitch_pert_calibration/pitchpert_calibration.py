@@ -25,6 +25,436 @@ from utils.processing import make_jsonable_dict
 from pitch_pert_calibration.picklable_caltools import _initialize_global_data, _standalone_objective_function
 
 
+class CalibrationLoggingUtility:
+    """
+    Utility class for managing logging, progress tracking, and file management
+    across different calibration methods.
+    """
+    
+    def __init__(self, output_dir=None):
+        """
+        Initialize the logging utility.
+        
+        Args:
+            output_dir: Base directory for outputs (if None, uses default from configs)
+        """
+        if output_dir is None:
+            from utils.get_configs import get_paths
+            path_obj = get_paths()
+            self.base_output_dir = path_obj.fig_save_path
+        else:
+            self.base_output_dir = output_dir
+    
+    def create_timestamped_directory(self, prefix="calibration_run"):
+        """
+        Create a timestamped output directory.
+        
+        Args:
+            prefix: Prefix for the directory name
+            
+        Returns:
+            tuple: (run_dir, timestamp) where run_dir is the full path
+        """
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        run_dir = os.path.join(self.base_output_dir, f"{prefix}_{timestamp}")
+        os.makedirs(run_dir, exist_ok=True)
+        return run_dir, timestamp
+    
+    def setup_logging_environment(self, run_dir, log_filename="optimization_log.txt", 
+                                progress_filename="progress_history.json"):
+        """
+        Set up logging files and return configured functions.
+        
+        Args:
+            run_dir: Directory to create log files in
+            log_filename: Name of the log file
+            progress_filename: Name of the progress file
+            
+        Returns:
+            tuple: (log_message_func, log_file_path, progress_file_path)
+        """
+        log_file = os.path.join(run_dir, log_filename)
+        progress_file = os.path.join(run_dir, progress_filename)
+        
+        def log_message(message, print_to_console=True):
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            log_entry = f"[{timestamp}] {message}"
+            with open(log_file, 'a') as f:
+                f.write(log_entry + '\n')
+            if print_to_console:
+                print(log_entry)
+        
+        return log_message, log_file, progress_file
+    
+    def initialize_progress_tracking(self):
+        """
+        Initialize the standard progress tracking data structure.
+        
+        Returns:
+            dict: Initialized progress tracking dictionary
+        """
+        return {
+            'runs': [],
+            'overall_best_rmse': [],
+            'overall_best_params': [],
+            'run_summaries': []
+        }
+    
+    def initialize_run_progress(self, run_number):
+        """
+        Initialize progress tracking for a specific run.
+        
+        Args:
+            run_number: Current run number (1-indexed)
+            
+        Returns:
+            dict: Initialized run progress dictionary
+        """
+        return {
+            'run_number': run_number,
+            'iterations': [],
+            'best_rmse_history': [],
+            'mean_rmse_history': [],
+            'std_rmse_history': [],
+            'convergence_info': {
+                'converged': False,
+                'iteration': None,
+                'reason': 'Maximum iterations reached'
+            }
+        }
+    
+    def save_progress_data(self, progress_file, progress_data):
+        """
+        Save progress data to JSON file.
+        
+        Args:
+            progress_file: Path to the progress file
+            progress_data: Progress data dictionary to save
+        """
+        with open(progress_file, 'w') as f:
+            json.dump(progress_data, f, indent=2)
+    
+    def log_calibration_start(self, log_message_func, method_name, **kwargs):
+        """
+        Log the start of a calibration process with parameters.
+        
+        Args:
+            log_message_func: Function to use for logging
+            method_name: Name of the calibration method
+            **kwargs: Key-value pairs of parameters to log
+        """
+        log_message_func(f"Starting {method_name} optimization", True)
+        for key, value in kwargs.items():
+            log_message_func(f"{key}: {value}", True)
+    
+    def log_run_start(self, log_message_func, run_number, total_runs):
+        """
+        Log the start of a specific run.
+        
+        Args:
+            log_message_func: Function to use for logging
+            run_number: Current run number (1-indexed)
+            total_runs: Total number of runs
+        """
+        log_message_func(f"Starting run {run_number}/{total_runs}", True)
+    
+    def log_run_completion(self, log_message_func, run_number, total_runs, 
+                          final_rmse, duration_seconds):
+        """
+        Log the completion of a specific run.
+        
+        Args:
+            log_message_func: Function to use for logging
+            run_number: Current run number (1-indexed)
+            total_runs: Total number of runs
+            final_rmse: Final RMSE achieved in this run
+            duration_seconds: Duration of the run in seconds
+        """
+        log_message_func(f"Run {run_number} completed in {duration_seconds:.1f}s. "
+                        f"Final RMSE: {final_rmse:.6f}", True)
+    
+    def log_overall_completion(self, log_message_func, total_duration, best_overall_rmse):
+        """
+        Log the completion of all runs.
+        
+        Args:
+            log_message_func: Function to use for logging
+            total_duration: Total duration of all runs in seconds
+            best_overall_rmse: Best RMSE achieved across all runs
+        """
+        log_message_func(f"All runs completed in {total_duration:.1f}s", True)
+        log_message_func(f"Best overall RMSE: {best_overall_rmse:.6f}", True)
+    
+    def log_new_best(self, log_message_func, run_number, iteration, new_rmse):
+        """
+        Log when a new best RMSE is found.
+        
+        Args:
+            log_message_func: Function to use for logging
+            run_number: Current run number (1-indexed)
+            iteration: Current iteration number (1-indexed)
+            new_rmse: New best RMSE value
+        """
+        log_message_func(f"Run {run_number}, Iter {iteration}: New best RMSE = {new_rmse:.6f}", False)
+    
+    def log_progress(self, log_message_func, run_number, iteration, total_iterations,
+                    best_rmse, mean_rmse, no_improvement_count):
+        """
+        Log periodic progress updates.
+        
+        Args:
+            log_message_func: Function to use for logging
+            run_number: Current run number (1-indexed)
+            iteration: Current iteration number (1-indexed)
+            total_iterations: Total iterations for this run
+            best_rmse: Current best RMSE
+            mean_rmse: Current mean RMSE
+            no_improvement_count: Count of iterations without improvement
+        """
+        log_message_func(f"Run {run_number}, Iter {iteration}/{total_iterations}: "
+                        f"Best RMSE = {best_rmse:.6f}, "
+                        f"Mean RMSE = {mean_rmse:.6f}, "
+                        f"No improvement = {no_improvement_count}", False)
+    
+    def log_convergence(self, log_message_func, run_number, iteration, reason):
+        """
+        Log when convergence is reached.
+        
+        Args:
+            log_message_func: Function to use for logging
+            run_number: Current run number (1-indexed)
+            iteration: Iteration where convergence occurred
+            reason: Reason for convergence
+        """
+        log_message_func(f"Run {run_number} converged at iteration {iteration}: {reason}", True)
+    
+    def write_configuration_header(self, log_file, method_name, **config_params):
+        """
+        Write a configuration header to the log file for special calibration types.
+        
+        Args:
+            log_file: Path to the log file
+            method_name: Name of the calibration method
+            **config_params: Key-value pairs of configuration parameters
+        """
+        with open(log_file, 'w') as f:
+            f.write("=" * 80 + "\n")
+            f.write(f"{method_name.upper()} CALIBRATION CONFIGURATION\n")
+            f.write("=" * 80 + "\n")
+            f.write(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"Output Directory: {os.path.dirname(log_file)}\n\n")
+            
+            # Write configuration parameters
+            for section_name, section_params in config_params.items():
+                if isinstance(section_params, dict):
+                    f.write(f"{section_name.upper()}:\n")
+                    f.write("-" * 40 + "\n")
+                    for key, value in section_params.items():
+                        f.write(f"{key}: {value}\n")
+                    f.write("\n")
+                else:
+                    f.write(f"{section_name}: {section_params}\n")
+            
+            f.write("=" * 80 + "\n")
+            f.write("OPTIMIZATION LOG STARTS BELOW\n")
+            f.write("=" * 80 + "\n\n")
+    
+    def save_run_summary(self, progress_data, run_number, final_rmse, iterations_completed, 
+                        duration_seconds, convergence_info):
+        """
+        Add a run summary to the progress data.
+        
+        Args:
+            progress_data: Progress tracking dictionary
+            run_number: Run number (1-indexed)
+            final_rmse: Final RMSE for this run
+            iterations_completed: Number of iterations completed
+            duration_seconds: Duration of the run in seconds
+            convergence_info: Dictionary with convergence details
+        """
+        progress_data['runs'].append(run_number)
+        progress_data['run_summaries'].append({
+            'run_number': run_number,
+            'final_rmse': float(final_rmse),
+            'iterations_completed': iterations_completed,
+            'duration_seconds': duration_seconds,
+            'convergence_info': convergence_info
+        })
+    
+    def update_overall_best(self, progress_data, run_number, best_rmse, best_params):
+        """
+        Update the overall best results in progress data.
+        
+        Args:
+            progress_data: Progress tracking dictionary
+            run_number: Run number (1-indexed)
+            best_rmse: Best RMSE achieved so far
+            best_params: Best parameters achieved so far
+        """
+        progress_data['overall_best_rmse'].append(float(best_rmse))
+        progress_data['overall_best_params'].append(
+            best_params.tolist() if hasattr(best_params, 'tolist') else best_params
+        )
+    
+    def create_optimization_summary(self, run_dir, method_name, best_params, best_rmse, 
+                                  progress_data, total_duration):
+        """
+        Create a comprehensive optimization summary file.
+        
+        Args:
+            run_dir: Directory to save the summary
+            method_name: Name of the calibration method
+            best_params: Best parameters achieved
+            best_rmse: Best RMSE achieved
+            progress_data: Progress tracking data
+            total_duration: Total duration of all runs
+        """
+        summary_file = os.path.join(run_dir, f"{method_name.lower().replace(' ', '_')}_summary.txt")
+        
+        with open(summary_file, 'w') as f:
+            f.write(f"{method_name.upper()} OPTIMIZATION SUMMARY\n")
+            f.write("=" * 50 + "\n\n")
+            f.write(f"Optimization completed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"Total duration: {total_duration:.1f} seconds\n")
+            f.write(f"Best overall RMSE: {best_rmse:.6f}\n")
+            f.write(f"Number of runs: {len(progress_data['runs'])}\n\n")
+            
+            if hasattr(best_params, 'tolist'):
+                f.write("Best parameters:\n")
+                f.write("-" * 20 + "\n")
+                for i, param_value in enumerate(best_params):
+                    f.write(f"  Parameter {i+1}: {param_value:.6f}\n")
+                f.write("\n")
+            
+            f.write("Run summaries:\n")
+            f.write("-" * 20 + "\n")
+            for summary in progress_data['run_summaries']:
+                f.write(f"  Run {summary['run_number']}: RMSE={summary['final_rmse']:.6f}, "
+                       f"Iterations={summary['iterations_completed']}, "
+                       f"Duration={summary['duration_seconds']:.1f}s, "
+                       f"Converged={'Yes' if summary['convergence_info']['converged'] else 'No'}\n")
+
+    def create_twolayer_summary(self, run_dir, upper_layer_params, lower_layer_params, 
+                               final_cost, total_duration, upper_run_dir):
+        """
+        Create a summary file specifically for two-layer nested calibration.
+        
+        Args:
+            run_dir: Directory to save the summary
+            upper_layer_params: Best upper layer parameters
+            lower_layer_params: Best lower layer parameters
+            final_cost: Final combined cost
+            total_duration: Total duration of optimization
+            upper_run_dir: Directory where upper layer results are stored
+        """
+        summary_file = os.path.join(run_dir, "twolayer_calibration_summary.txt")
+        
+        with open(summary_file, 'w') as f:
+            f.write("TWO-LAYER NESTED CALIBRATION SUMMARY\n")
+            f.write("=" * 50 + "\n\n")
+            f.write(f"Calibration completed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"Total duration: {total_duration:.1f} seconds\n")
+            f.write(f"Final combined cost: {final_cost:.6f}\n\n")
+            
+            # f.write("UPPER LAYER PARAMETERS (System Parameters):\n")
+            # f.write("-" * 40 + "\n")
+            # if hasattr(upper_layer_params, 'tolist'):
+            #     for i, param_value in enumerate(upper_layer_params):
+            #         f.write(f"  Parameter {i+1}: {param_value:.6f}\n")
+            # else:
+            #     for i, param_value in enumerate(upper_layer_params):
+            #         f.write(f"  Parameter {i+1}: {param_value:.6f}\n")
+            # f.write("\n")
+            
+            # f.write("LOWER LAYER PARAMETERS (Gain Parameters):\n")
+            # f.write("-" * 40 + "\n")
+            # if hasattr(lower_layer_params, 'tolist'):
+            #     for i, param_value in enumerate(lower_layer_params):
+            #         f.write(f"  Parameter {i+1}: {param_value:.6f}\n")
+            # else:
+            #     for i, param_value in enumerate(lower_layer_params):
+            #         f.write(f"  Parameter {i+1}: {param_value:.6f}\n")
+            # f.write("\n")
+            
+            f.write(f"Upper layer results directory: {upper_run_dir}\n")
+            f.write(f"Main results directory: {run_dir}\n")
+    
+    def log_upper_layer_progress(self, log_message_func, particle_number, total_particles, 
+                                upper_params, lower_cost, iteration_number=None):
+        """
+        Log progress for upper layer optimization during two-layer nested calibration.
+        
+        Args:
+            log_message_func: Function to use for logging
+            particle_number: Current particle number (1-indexed)
+            total_particles: Total number of particles in upper layer
+            upper_params: Upper layer parameters for this particle
+            lower_cost: Cost returned from lower layer optimization
+            iteration_number: Optional iteration number if available
+        """
+        if iteration_number is not None:
+            log_message_func(f"Upper Layer - Iter {iteration_number}, Particle {particle_number}/{total_particles}: "
+                           f"Params={upper_params}, Lower Cost={lower_cost:.6f}", False)
+        else:
+            log_message_func(f"Upper Layer - Particle {particle_number}/{total_particles}: "
+                           f"Params={upper_params}, Lower Cost={lower_cost:.6f}", False)
+    
+    def log_upper_layer_summary(self, log_message_func, best_upper_params, best_combined_cost, 
+                               total_particles_evaluated, total_duration):
+        """
+        Log a summary of the upper layer optimization results.
+        
+        Args:
+            log_message_func: Function to use for logging
+            best_upper_params: Best upper layer parameters found
+            best_combined_cost: Best combined cost achieved
+            total_particles_evaluated: Total number of particles evaluated
+            total_duration: Total duration of upper layer optimization
+        """
+        log_message_func("=" * 60, True)
+        log_message_func("UPPER LAYER OPTIMIZATION SUMMARY", True)
+        log_message_func("=" * 60, True)
+        log_message_func(f"Total particles evaluated: {total_particles_evaluated}", True)
+        log_message_func(f"Best combined cost: {best_combined_cost:.6f}", True)
+        log_message_func(f"Best upper layer parameters: {best_upper_params}", True)
+        log_message_func(f"Total duration: {total_duration:.1f} seconds", True)
+        log_message_func("=" * 60, True)
+
+    def create_simple_calibration_summary(self, run_dir, method_name, final_mse, 
+                                        iterations_completed, total_duration, parameters=None):
+        """
+        Create a simple summary file for basic calibration methods.
+        
+        Args:
+            run_dir: Directory to save the summary
+            method_name: Name of the calibration method
+            final_mse: Final MSE achieved
+            iterations_completed: Number of iterations completed
+            total_duration: Total duration of optimization
+            parameters: Optional parameters to include in summary
+        """
+        summary_file = os.path.join(run_dir, f"{method_name.lower().replace(' ', '_')}_summary.txt")
+        
+        with open(summary_file, 'w') as f:
+            f.write(f"{method_name.upper()} CALIBRATION SUMMARY\n")
+            f.write("=" * 50 + "\n\n")
+            f.write(f"Calibration completed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"Total duration: {total_duration:.1f} seconds\n")
+            f.write(f"Final MSE: {final_mse:.6f}\n")
+            f.write(f"Iterations completed: {iterations_completed}\n\n")
+            
+            if parameters is not None:
+                f.write("Parameters:\n")
+                f.write("-" * 20 + "\n")
+                if hasattr(parameters, 'tolist'):
+                    for i, param_value in enumerate(parameters):
+                        f.write(f"  Parameter {i+1}: {param_value:.6f}\n")
+                else:
+                    for i, param_value in enumerate(parameters):
+                        f.write(f"  Parameter {i+1}: {param_value:.6f}\n")
+                f.write("\n")
+
+
 def get_perturbation_event_times(file_path, units='cents', epsilon=1e-10):
     df = pd.read_csv(file_path)
 
@@ -95,6 +525,9 @@ class PitchPertCalibrator:
         self.truncate_end = truncate_end
         self.sensor_processor = sensor_processor
         self.mse_history = []
+        
+        # Initialize logging utility
+        self.logging_utility = CalibrationLoggingUtility()
         
     def objective_function(self, params):
         """
@@ -209,19 +642,38 @@ class PitchPertCalibrator:
             callback=self.callback_function
         )
         
-        run_dir = self.fig_save_path + '/Standard_Calibration'+ datetime.now().strftime("%Y%m%d_%H%M%S")
+        # Setup output directory using logging utility
+        run_dir, timestamp = self.logging_utility.create_timestamped_directory(prefix="standard_calibration")
+        
+        # Setup logging using logging utility
+        log_message, log_file, progress_file = self.logging_utility.setup_logging_environment(run_dir)
+        
+        # Log calibration completion
+        log_message("Standard calibration completed", True)
+        log_message(f"Final MSE: {result.fun}", True)
+        log_message(f"Number of iterations: {result.nit}", True)
+        log_message(f"Optimization success: {result.success}", True)
+        log_message(f"Message: {result.message}", True)
+        log_message(f"Number of MSE values recorded: {len(self.mse_history)}", True)
+        
+        # Create simple calibration summary
+        self.logging_utility.create_simple_calibration_summary(
+            run_dir, "Standard Calibration", result.fun, result.nit, 0, result.x
+        )
+        
         # Apply optimized parameters to the model
         self.apply_optimized_params(result.x, run_dir)
         
-        print('Optimization completed:')
-        print(f'Final MSE: {result.fun}')
-        print(f'Number of iterations: {result.nit}')
-        print(f'Optimization success: {result.success}')
-        print(f'Message: {result.message}')
-        print(f'Number of MSE values recorded: {len(self.mse_history)}')
-        
+        # Create convergence plot
+        plt.figure(figsize=(10, 6))
         plt.plot(self.mse_history)
-        plt.show()
+        plt.xlabel('Iteration')
+        plt.ylabel('MSE')
+        plt.title('Standard Calibration Convergence')
+        plt.grid(True)
+        plt.savefig(os.path.join(run_dir, 'convergence_plot.png'), dpi=300, bbox_inches='tight')
+        plt.close()
+        
         return self.params_obj, self.mse_history, run_dir
     
     def particle_swarm_calibrate(self, num_particles=10000, max_iters=1000, convergence_tol=0.01, runs=10, 
@@ -243,29 +695,12 @@ class PitchPertCalibrator:
         """
         plt.use('Agg')  # Use non-interactive backend for SSH
         
-        # Setup output directory
-        if output_dir is None:
-            from utils.get_configs import get_paths
-            path_obj = get_paths()
-            output_dir = path_obj.fig_save_path
+        # Setup output directory using logging utility
+        run_dir, timestamp = self.logging_utility.create_timestamped_directory(prefix="particle_swarm_run")
         
-        # Create timestamped output directory
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        run_dir = os.path.join(output_dir, f"particle_swarm_run_{timestamp}")
-        os.makedirs(run_dir, exist_ok=True)
+        # Setup logging using logging utility
+        log_message, log_file, progress_file = self.logging_utility.setup_logging_environment(run_dir)
         
-        # Setup logging
-        log_file = os.path.join(run_dir, "optimization_log.txt")
-        progress_file = os.path.join(run_dir, "progress_history.json")
-        
-        def log_message(message, print_to_console=True):
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            log_entry = f"[{timestamp}] {message}"
-            with open(log_file, 'a') as f:
-                f.write(log_entry + '\n')
-            if print_to_console:
-                print(log_entry)
-    
         # Initialize tracking variables 
         param_config, bounds, x0, current_params = calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='Particle Swarm', null_values=False)
         bounds = np.array(bounds)  # Convert to numpy array for indexing
@@ -275,23 +710,24 @@ class PitchPertCalibrator:
         best_overall_rmse = np.inf
         best_overall_params = None
         
-        # Progress tracking
-        progress_data = {
-            'runs': [],
-            'overall_best_rmse': [],
-            'overall_best_params': [],
-            'run_summaries': []
-        }
+        # Progress tracking using logging utility
+        progress_data = self.logging_utility.initialize_progress_tracking()
         
-        log_message(f"Starting particle swarm optimization with {runs} runs", True)
-        log_message(f"Parameters: particles={num_particles}, max_iters={max_iters}, convergence_tol={convergence_tol}", True)
-        log_message(f"Output directory: {run_dir}", True)
+        # Log calibration start using logging utility
+        self.logging_utility.log_calibration_start(
+            log_message, 
+            "particle swarm", 
+            particles=num_particles, 
+            max_iters=max_iters, 
+            convergence_tol=convergence_tol,
+            output_directory=run_dir
+        )
         
         start_time = datetime.now()
         
         for run in range(runs):
             run_start_time = datetime.now()
-            log_message(f"Starting run {run + 1}/{runs}", True)
+            self.logging_utility.log_run_start(log_message, run + 1, runs)
             
             #particles = np.random.uniform(bounds[:, 0], bounds[:, 1], (num_particles, num_params))
             particles = self.quantized_uniform(bounds[:, 0], bounds[:, 1], precision=3, size=(num_particles, num_params))
@@ -300,19 +736,8 @@ class PitchPertCalibrator:
             best_history = []
             no_improvement_count = 0
             
-            # Run-specific progress tracking
-            run_progress = {
-                'run_number': run + 1,
-                'iterations': [],
-                'best_rmse_history': [],
-                'mean_rmse_history': [],
-                'std_rmse_history': [],
-                'convergence_info': {
-                    'converged': False,
-                    'iteration': max_iters,
-                    'reason': 'Maximum iterations reached'
-                }
-            }
+            # Run-specific progress tracking using logging utility
+            run_progress = self.logging_utility.initialize_run_progress(run + 1)
             
             for it in range(max_iters):
                 # #Scatter plot for test parameter
@@ -343,14 +768,16 @@ class PitchPertCalibrator:
                     best_rmse = current_best_rmse
                     best_params = current_best_params.copy()
                     no_improvement_count = 0
-                    log_message(f"Run {run + 1}, Iter {it + 1}: New best RMSE = {best_rmse:.6f}", False)
+                    self.logging_utility.log_new_best(log_message, run + 1, it + 1, best_rmse)
                 else:
                     no_improvement_count += 1
                 
                 # Log progress periodically
                 if (it + 1) % log_interval == 0:
-                    log_message(f"Run {run + 1}, Iter {it + 1}/{max_iters}: Best RMSE = {best_rmse:.6f}, "
-                              f"Mean RMSE = {np.mean(rmses):.6f}, No improvement = {no_improvement_count}", False)
+                    self.logging_utility.log_progress(
+                        log_message, run + 1, it + 1, max_iters, 
+                        best_rmse, np.mean(rmses), no_improvement_count
+                    )
                 
                 # Save intermediate results periodically
                 if (it + 1) % save_interval == 0:
@@ -368,7 +795,7 @@ class PitchPertCalibrator:
                     convergence_reason = "No improvement for 100 iterations"
                 
                 if convergence_reached:
-                    log_message(f"Run {run + 1} converged at iteration {it + 1}: {convergence_reason}", True)
+                    self.logging_utility.log_convergence(log_message, run + 1, it + 1, convergence_reason)
                     run_progress['convergence_info'] = {
                         'converged': True,
                         'iteration': it + 1,
@@ -420,7 +847,7 @@ class PitchPertCalibrator:
             run_end_time = datetime.now()
             run_duration = (run_end_time - run_start_time).total_seconds()
             
-            log_message(f"Run {run + 1} completed in {run_duration:.1f}s. Final RMSE: {best_rmse:.6f}", True)
+            self.logging_utility.log_run_completion(log_message, run + 1, runs, best_rmse, run_duration)
             
             # Update overall best if this run was better
             if best_rmse < best_overall_rmse:
@@ -428,21 +855,19 @@ class PitchPertCalibrator:
                 best_overall_params = best_params.copy()
                 log_message(f"New overall best RMSE: {best_overall_rmse:.6f}", True)
             
-            # Store run summary
-            progress_data['runs'].append(run + 1)
-            progress_data['overall_best_rmse'].append(float(best_overall_rmse))
-            progress_data['overall_best_params'].append(best_overall_params.tolist() if best_overall_params is not None else None)
-            progress_data['run_summaries'].append({
-                'run_number': run + 1,
-                'final_rmse': float(best_rmse),
-                'iterations_completed': len(best_history),
-                'duration_seconds': run_duration,
-                'convergence_info': run_progress['convergence_info']
-            })
+            # Store run summary using logging utility
+            self.logging_utility.save_run_summary(
+                progress_data, run + 1, best_rmse, len(best_history), 
+                run_duration, run_progress['convergence_info']
+            )
             
-            # Save run progress
-            with open(progress_file, 'w') as f:
-                json.dump(progress_data, f, indent=2)
+            # Update overall best using logging utility
+            self.logging_utility.update_overall_best(
+                progress_data, run + 1, best_overall_rmse, best_overall_params
+            )
+            
+            # Save run progress using logging utility
+            self.logging_utility.save_progress_data(progress_file, progress_data)
             
             # Create run plots
             self._create_run_plots(run_dir, run, run_progress)
@@ -451,12 +876,17 @@ class PitchPertCalibrator:
         end_time = datetime.now()
         total_duration = (end_time - start_time).total_seconds()
         
-        log_message(f"All runs completed in {total_duration:.1f}s", True)
-        log_message(f"Best overall RMSE: {best_overall_rmse:.6f}", True)
+        self.logging_utility.log_overall_completion(log_message, total_duration, best_overall_rmse)
         
         # Apply the best parameters to the model
         if best_overall_params is not None:
             self.apply_optimized_params(best_overall_params, run_dir)
+        
+        # Create optimization summary using logging utility
+        self.logging_utility.create_optimization_summary(
+            run_dir, "particle swarm", best_overall_params, best_overall_rmse, 
+            progress_data, total_duration
+        )
         
         # Save final results
         self._save_final_results(run_dir, best_overall_params, best_overall_rmse, progress_data)
@@ -465,7 +895,7 @@ class PitchPertCalibrator:
         return self.params_obj, best_overall_rmse, run_dir
 
     def pyswarms_calibrate(self, num_particles=10000, max_iters=1000, convergence_tol=0.01, runs=10, 
-                            log_interval=1, save_interval=50, output_dir=None, custom_objective=None, null_values=None):
+                            log_interval=1, save_interval=50, parallel_opt=False, output_dir=None, custom_objective=None, null_values=None):
         """
         PySwarms calibration with comprehensive logging and monitoring.
         
@@ -482,28 +912,11 @@ class PitchPertCalibrator:
             tuple: (optimized_params, mse_history, run_dir) where run_dir is the timestamped output directory
         """
     
-        # Setup output directory
-        if output_dir is None:
-            from utils.get_configs import get_paths
-            path_obj = get_paths()
-            output_dir = path_obj.fig_save_path
+        # Setup output directory using logging utility
+        run_dir, timestamp = self.logging_utility.create_timestamped_directory(prefix="pyswarms_run")
         
-        # Create timestamped output directory
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        run_dir = os.path.join(output_dir, f"pyswarms_run_{timestamp}")
-        os.makedirs(run_dir, exist_ok=True)
-        
-        # Setup logging
-        log_file = os.path.join(run_dir, "optimization_log.txt")
-        progress_file = os.path.join(run_dir, "progress_history.json")
-        
-        def log_message(message, print_to_console=True):
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            log_entry = f"[{timestamp}] {message}"
-            with open(log_file, 'a') as f:
-                f.write(log_entry + '\n')
-            if print_to_console:
-                print(log_entry)
+        # Setup logging using logging utility
+        log_message, log_file, progress_file = self.logging_utility.setup_logging_environment(run_dir)
 
         # Initialize global data for multiprocessing
         _initialize_global_data(
@@ -531,18 +944,18 @@ class PitchPertCalibrator:
         best_overall_rmse = np.inf
         best_overall_params = None
         
-        # Progress tracking
-        progress_data = {
-            'runs': [],
-            'overall_best_rmse': [],
-            'overall_best_params': [],
-            'run_summaries': []
-        }
+        # Progress tracking using logging utility
+        progress_data = self.logging_utility.initialize_progress_tracking()
         
-        log_message(f"Starting PySwarms optimization with {runs} runs", True)
-        log_message(f"Parameters: particles={num_particles}, max_iters={max_iters}, convergence_tol={convergence_tol}", True)
-        log_message(f"Output directory: {run_dir}", True)
-
+        # Log calibration start using logging utility
+        self.logging_utility.log_calibration_start(
+            log_message, 
+            "PySwarms", 
+            particles=num_particles, 
+            max_iters=max_iters, 
+            convergence_tol=convergence_tol,
+            output_directory=run_dir
+        )
 
         log_message("Calibration Settings:", True)
         for key, value in self.params_obj.cal_set_dict.items():
@@ -552,7 +965,7 @@ class PitchPertCalibrator:
         
         for run in range(runs):
             run_start_time = datetime.now()
-            log_message(f"Starting run {run + 1}/{runs}", True)
+            self.logging_utility.log_run_start(log_message, run + 1, runs)
 
             # PySwarms options dictionary
             options = {
@@ -571,19 +984,8 @@ class PitchPertCalibrator:
                 bounds=pyswarms_bounds
             )
             
-            # Run-specific progress tracking
-            run_progress = {
-                'run_number': run + 1,
-                'iterations': [],
-                'best_rmse_history': [],
-                'mean_rmse_history': [],
-                'std_rmse_history': [],
-                'convergence_info': {
-                    'converged': False,
-                    'iteration': max_iters,
-                    'reason': 'Maximum iterations reached'
-                }
-            }
+            # Run-specific progress tracking using logging utility
+            run_progress = self.logging_utility.initialize_run_progress(run + 1)
             
             # Progress tracking will be done after optimization completes
             # since PySwarms doesn't support callbacks in the same way
@@ -591,12 +993,14 @@ class PitchPertCalibrator:
             # Run optimization
             set_objective_function = custom_objective if custom_objective is not None else _standalone_objective_function
 
+
             best_cost, best_pos = optimizer.optimize(
                 objective_func=set_objective_function,
-                n_processes=psutil.cpu_count(logical=False)-2,
+                n_processes=psutil.cpu_count(logical=False)-2 if parallel_opt else None,
                 iters=max_iters,
                 verbose=False
             )
+
             print(run, 'best_cost', best_cost)
             print(run, 'best_pos', best_pos)
             # Extract progress data from optimizer
@@ -632,7 +1036,7 @@ class PitchPertCalibrator:
             run_end_time = datetime.now()
             run_duration = (run_end_time - run_start_time).total_seconds()
             
-            log_message(f"Run {run + 1} completed in {run_duration:.1f}s. Final RMSE: {best_cost:.6f}", True)
+            self.logging_utility.log_run_completion(log_message, run + 1, runs, best_cost, run_duration)
             
             # Update overall best if this run was better
             if best_cost < best_overall_rmse:
@@ -640,17 +1044,16 @@ class PitchPertCalibrator:
                 best_overall_params = best_pos.copy()
                 log_message(f"New overall best RMSE: {best_overall_rmse:.6f}", True)
             
-            # Store run summary
-            progress_data['runs'].append(run + 1)
-            progress_data['overall_best_rmse'].append(float(best_overall_rmse))
-            progress_data['overall_best_params'].append(best_overall_params.tolist() if best_overall_params is not None else None)
-            progress_data['run_summaries'].append({
-                'run_number': run + 1,
-                'final_rmse': float(best_cost),
-                'iterations_completed': len(run_progress['iterations']),
-                'duration_seconds': run_duration,
-                'convergence_info': run_progress['convergence_info']
-            })
+            # Store run summary using logging utility
+            self.logging_utility.save_run_summary(
+                progress_data, run + 1, best_cost, len(run_progress['iterations']), 
+                run_duration, run_progress['convergence_info']
+            )
+            
+            # Update overall best using logging utility
+            self.logging_utility.update_overall_best(
+                progress_data, run + 1, best_overall_rmse, best_overall_params
+            )
             
             # Save run progress
             with open(progress_file, 'w') as f:
@@ -663,51 +1066,117 @@ class PitchPertCalibrator:
         end_time = datetime.now()
         total_duration = (end_time - start_time).total_seconds()
         
-        log_message(f"All runs completed in {total_duration:.1f}s", True)
-        log_message(f"Best overall RMSE: {best_overall_rmse:.6f}", True)
+        self.logging_utility.log_overall_completion(log_message, total_duration, best_overall_rmse)
         
         # Apply the best parameters to the model
         if best_overall_params is not None:
             self.apply_optimized_params(best_overall_params, run_dir)
+        
+        # Create optimization summary using logging utility
+        self.logging_utility.create_optimization_summary(
+            run_dir, "PySwarms", best_overall_params, best_overall_rmse, 
+            progress_data, total_duration
+        )
         
         # Save final results
         self._save_final_results(run_dir, best_overall_params, best_overall_rmse, progress_data)
         
         return self.params_obj, best_overall_rmse, run_dir
 
-    def pyswarms_twolayer_calibrate(self, num_particles=10000, max_iters=1000, convergence_tol=0.01, runs=10, 
-                            log_interval=1, save_interval=50, output_dir=None):
+
+    def pyswarms_twolayer_calibrate(self, upper_particles=100, upper_iters=50, upper_runs=3,
+                                    lower_particles=300, lower_iters=30, lower_runs=2,
+                                    convergence_tol=0.01, log_interval=1, save_interval=25, output_dir=None):
         """
-        PySwarms calibration with two-layer structure.
-        """
-
-        upper_calibrator = PitchPertCalibrator(
-            params_obj=self.params_obj,
-            target_response=self.target_response,
-            pert_signal=self.pert_signal,
-            T_sim=self.T_sim,
-            truncate_start=self.truncate_start,
-            truncate_end=self.truncate_end,
-            sensor_processor=self.sensor_processor
-        )
-        cal_params, mse_history, run_dir = upper_calibrator.pyswarms_calibrate(
-            num_particles=num_particles,
-            max_iters=max_iters,
-            convergence_tol=convergence_tol,
-            runs=runs,
-            log_interval=log_interval,
-            save_interval=save_interval,
-            output_dir=output_dir,
-            custom_objective=self.upper_layer_objective,
-            null_values='upper layer'
-        )
-
-        cost = self.upper_layer_objective(cal_params)
-        return cost
-
+        Feasible nested calibration: small upper layer, larger lower layer.
         
-
-    def upper_layer_objective(self, params):
+        Args:
+            upper_particles: Number of particles for system parameters (keep small: 50-200)
+            upper_iters: Iterations for upper layer (keep small: 30-100)
+            upper_runs: Runs for upper layer (keep small: 2-5)
+            lower_particles: Number of particles for gain parameters (can be larger: 200-500)
+            lower_iters: Iterations for lower layer (keep small: 20-50)
+            lower_runs: Runs for lower layer (keep small: 1-3)
+            convergence_tol: Convergence tolerance
+            log_interval: How often to log progress
+            save_interval: How often to save intermediate results
+            output_dir: Directory to save outputs
+        """
+        # Define parameter layers
+        upper_layer_params = ['A', 'B', 'C_aud', 'C_som', 'sensor_delay_aud', 'sensor_delay_som', 'actuator_delay']
+        lower_layer_params = ['K_aud', 'K_som', 'L_aud', 'L_som']
+        
+        # Setup output directory using logging utility
+        run_dir, timestamp = self.logging_utility.create_timestamped_directory(prefix="twolayer_run")
+        
+        # Setup logging using logging utility with custom filename
+        log_message, log_file, progress_file = self.logging_utility.setup_logging_environment(
+            run_dir, log_filename="twolayer_optimization_log.txt"
+        )
+        
+        # Write initial configuration using logging utility
+        upper_layer_config = {
+            'Parameters': upper_layer_params,
+            'Particles': upper_particles,
+            'Iterations': upper_iters,
+            'Runs': upper_runs
+        }
+        
+        lower_layer_config = {
+            'Parameters': lower_layer_params,
+            'Particles': lower_particles,
+            'Iterations': lower_iters,
+            'Runs': lower_runs
+        }
+        
+        calibration_settings = {}
+        if hasattr(self.params_obj, 'cal_set_dict') and self.params_obj.cal_set_dict:
+            calibration_settings = self.params_obj.cal_set_dict
+        
+        self.logging_utility.write_configuration_header(
+            log_file,
+            "two-layer nested calibration",
+            upper_layer=upper_layer_config,
+            lower_layer=lower_layer_config,
+            calibration_settings=calibration_settings
+        )
+        
+        # Log calibration start using logging utility
+        self.logging_utility.log_calibration_start(
+            log_message, 
+            "two-layer nested", 
+            upper_particles=upper_particles, 
+            upper_iters=upper_iters, 
+            upper_runs=upper_runs,
+            lower_particles=lower_particles,
+            lower_iters=lower_iters,
+            lower_runs=lower_runs,
+            convergence_tol=convergence_tol,
+            output_directory=run_dir
+        )
+        
+        # Store lower layer parameters for the nested objective function
+        self._lower_layer_config = {
+            'particles': lower_particles,
+            'iterations': lower_iters,
+            'runs': lower_runs,
+            'convergence_tol': convergence_tol,
+            'log_interval': log_interval,
+            'save_interval': save_interval
+        }
+        
+        # Pass the logging utility and run directory to the upper layer objective
+        self._upper_layer_logging_utility = self.logging_utility
+        self._upper_layer_run_dir = run_dir
+        self._upper_layer_log_message = log_message
+        
+        # Initialize tracking for upper layer optimization
+        self._upper_layer_call_count = 0
+        self._upper_layer_best_cost = np.inf
+        self._upper_layer_best_params = None
+        
+        # Initialize global data for multiprocessing BEFORE creating the calibrator
+        
         _initialize_global_data(
             self.params_obj,
             self.target_response,
@@ -717,6 +1186,91 @@ class PitchPertCalibrator:
             self.truncate_end,
             self.sensor_processor
         )
+        
+        # Create upper layer calibrator
+        upper_calibrator = PitchPertCalibrator(
+            params_obj=self.params_obj,
+            target_response=self.target_response,
+            pert_signal=self.pert_signal,
+            T_sim=self.T_sim,
+            truncate_start=self.truncate_start,
+            truncate_end=self.truncate_end,
+            sensor_processor=self.sensor_processor
+        )
+            
+        # Run upper layer optimization
+        log_message("Starting upper layer optimization (system parameters)", True)
+        start_time = datetime.now()
+        
+        cal_params, mse_history, upper_run_dir = upper_calibrator.pyswarms_calibrate(
+            num_particles=upper_particles,
+            max_iters=upper_iters,
+            convergence_tol=convergence_tol,
+            runs=upper_runs,
+            log_interval=log_interval,
+            save_interval=save_interval,
+            parallel_opt=False,
+            output_dir=run_dir,
+            custom_objective=self.upper_layer_objective,
+            null_values='upper layer'
+        )
+        
+        upper_duration = (datetime.now() - start_time).total_seconds()
+        log_message(f"Upper layer completed in {upper_duration:.1f}s", True)
+        #log_message(f"Best upper layer parameters: {}", True)
+
+        # Log final upper layer summary
+        if hasattr(self, '_upper_layer_call_count') and hasattr(self, '_upper_layer_best_cost'):
+            self.logging_utility.log_upper_layer_summary(
+                log_message,
+                self._upper_layer_best_params,
+                self._upper_layer_best_cost,
+                self._upper_layer_call_count,
+                upper_duration
+            )
+        
+        # Create two-layer summary using logging utility
+        self.logging_utility.create_twolayer_summary(
+            run_dir, cal_params, None, mse_history, upper_duration, upper_run_dir
+        )
+        print('mse_history', mse_history)
+        best_overall_rmse = mse_history
+
+        
+        return self.params_obj, best_overall_rmse, run_dir
+
+    def upper_layer_objective(self, params):
+        """
+        Objective function for upper layer that runs lower layer optimization.
+        This is called for each particle in the upper layer swarm.
+        """
+        # Increment call counter and track progress
+        if hasattr(self, '_upper_layer_call_count'):
+            self._upper_layer_call_count += 1
+            call_num = self._upper_layer_call_count
+        else:
+            call_num = "unknown"
+        
+        # Use the logging utility if available
+        if hasattr(self, '_upper_layer_log_message'):
+            log_message = self._upper_layer_log_message
+            log_message(f"Upper layer objective call #{call_num} with params: {params.shape}", False)
+        else:
+            # Fallback logging if no utility available
+            print(f"Upper layer objective call #{call_num} with params: {params.shape}")
+        
+        # Initialize global data for this evaluation
+        _initialize_global_data(
+            self.params_obj,
+            self.target_response,
+            self.pert_signal,
+            self.T_sim,
+            self.truncate_start,
+            self.truncate_end,
+            self.sensor_processor
+        )
+        
+        # Create lower layer calibrator
         lower_calibrator = PitchPertCalibrator(
             params_obj=self.params_obj,
             target_response=self.target_response,
@@ -726,22 +1280,73 @@ class PitchPertCalibrator:
             truncate_end=self.truncate_end,
             sensor_processor=self.sensor_processor
         )
+        
+        # Run lower layer optimization for these upper layer parameters
+        try:
+            if hasattr(self, '_upper_layer_log_message'):
+                log_message(f"Call #{call_num}: Starting lower layer optimization for upper params: {params.shape}", False)
+                log_message(f"Call #{call_num}: Lower layer config: particles={self._lower_layer_config['particles']}, "
+                          f"iterations={self._lower_layer_config['iterations']}, "
+                          f"runs={self._lower_layer_config['runs']}", False)
+            
+            cal_params, mse_history, lower_run_dir = lower_calibrator.pyswarms_calibrate(
+                num_particles=self._lower_layer_config['particles'],
+                max_iters=self._lower_layer_config['iterations'],
+                convergence_tol=self._lower_layer_config['convergence_tol'],
+                runs=self._lower_layer_config['runs'],
+                log_interval=self._lower_layer_config['log_interval'],
+                save_interval=self._lower_layer_config['save_interval'],
+                parallel_opt=False,
+                output_dir=None,
+                null_values='lower layer'
+            )
+            
+            if hasattr(self, '_upper_layer_log_message'):
+                log_message(f"Call #{call_num}: Lower layer optimization completed successfully", False)
+                log_message(f"Call #{call_num}: Lower layer best params: {cal_params}", False)
+                log_message(f"Call #{call_num}: Lower layer best RMSE: {mse_history}", False)
+            
+            # Evaluate the combined system with both upper and lower layer parameters
+            cost = self._evaluate_combined_system(params, cal_params)
+            
+            # Track best results
+            if hasattr(self, '_upper_layer_best_cost') and cost < self._upper_layer_best_cost:
+                self._upper_layer_best_cost = cost
+                self._upper_layer_best_params = params.copy() if hasattr(params, 'copy') else params
+                if hasattr(self, '_upper_layer_log_message'):
+                    log_message(f"Call #{call_num}: NEW BEST! Combined cost improved to {cost:.6f}", True)
+            
+            if hasattr(self, '_upper_layer_log_message'):
+                log_message(f"Call #{call_num}: Combined system evaluation completed. Total cost: {cost:.6f}", False)
+                
+                # Log progress summary
+                if hasattr(self, '_upper_layer_call_count'):
+                    self.logging_utility.log_upper_layer_progress(
+                        log_message, call_num, "unknown", params, cost
+                    )
+            
+            return cost
+            
+        except Exception as e:
+            error_msg = f"Call #{call_num}: Error in lower layer optimization: {e}"
+            if hasattr(self, '_upper_layer_log_message'):
+                log_message(error_msg, False)
+            else:
+                print(error_msg)
+            return 1e10  # Return high cost for failed evaluations
 
-        cal_params, mse_history, run_dir = lower_calibrator.pyswarms_calibrate(
-            num_particles=self.params_obj.cal_set_dict['particle_size'],
-            max_iters=self.params_obj.cal_set_dict['iterations'],
-            convergence_tol=self.params_obj.cal_set_dict['tolerance'],
-            runs=self.params_obj.cal_set_dict['runs'],
-            log_interval=1,  
-            save_interval=100,  
-            output_dir=None,
-            null_values='lower layer'
-        )
-
-        cost = self.eval_only(cal_params)
-        return cost
-
-
+    def _evaluate_combined_system(self, upper_params, lower_params):
+        """
+        Evaluate the system with both upper and lower layer parameters combined.
+        """
+        # Combine the parameters
+        combined_params = np.concatenate([upper_params, lower_params])
+        
+        # Set the current parameters
+        self._set_current_params(combined_params, null_values_spec=None)
+        
+        # Run simulation and return MSE
+        return self._evaluate_single_particle(combined_params)
 
 
     def eval_only(self, params):

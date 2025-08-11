@@ -77,7 +77,7 @@ def _initialize_global_data(params_obj, target_response, pert_signal, T_sim,
             params_obj.system_type, arb_name=params_obj.arb_name
         )
 
-def _standalone_objective_function(params, null_values_spec=None):
+def _standalone_objective_function(params, null_values_spec=None, layer=None):
     """
     Standalone objective function that can be pickled for multiprocessing.
     
@@ -97,8 +97,12 @@ def _standalone_objective_function(params, null_values_spec=None):
         costs = np.zeros(params.shape[0])
         
         for i in range(params.shape[0]):
-            particle_params = params[i]
-            costs[i] = _evaluate_single_particle_standalone(particle_params, null_values_spec=null_values_spec)
+            if layer == 'upper':
+                particle_params = params[i]
+                costs[i] = _evaluate_single_particle_standalone(particle_params, null_values_spec=null_values_spec)
+            else:
+                particle_params = params[i]
+                costs[i] = _evaluate_single_particle_standalone(particle_params, null_values_spec=null_values_spec)
             
             # Handle infinite values
             if np.isinf(costs[i]):
@@ -210,5 +214,9 @@ def _evaluate_single_particle_standalone(params, null_values_spec=None):
     
     mse = system.mse(system_response_truncated, _global_calibrator_data['target_response'], check_stability=True)
     return mse
+
+    # _evaluate_upper_particle_standalone(params, null_values_spec=null_values_spec)
+    # #run a lower layer optimization for the input particle
+
 
     

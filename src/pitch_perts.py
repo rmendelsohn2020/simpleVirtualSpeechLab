@@ -109,16 +109,9 @@ def run_calibration(calibrate_opt, params_obj, target_response, pert_signal, T_s
         )
 
         print('mse_history', mse_history)
-        if params_obj.system_type == 'DIVA':
-            sensor_delay_aud = int(cal_params.tau_A)
-            sensor_delay_som = int(cal_params.tau_S)
-        else:
-            sensor_delay_aud = int(cal_params.sensor_delay_aud)
-            sensor_delay_som = int(cal_params.sensor_delay_som)
-            actuator_delay = int(cal_params.actuator_delay)
 
         
-        readout_optimized_params(cal_params, sensor_delay_aud, sensor_delay_som, actuator_delay)
+        
     elif calibrate_opt == 'Particle Swarm':
         calibrator = PitchPertCalibrator(
             params_obj=params_obj,
@@ -143,17 +136,6 @@ def run_calibration(calibrate_opt, params_obj, target_response, pert_signal, T_s
         print('mse_history', mse_history)
         print(f'Results saved to: {run_dir}')
 
-        if params_obj.system_type == 'DIVA':
-            sensor_delay_aud = int(cal_params.tau_A)
-            sensor_delay_som = int(cal_params.tau_S)
-            actuator_delay = None
-        else:
-            sensor_delay_aud = int(cal_params.sensor_delay_aud)
-            sensor_delay_som = int(cal_params.sensor_delay_som)
-            actuator_delay = int(cal_params.actuator_delay)
-
-        # Save optimized parameters to the timestamped folder
-        readout_optimized_params(cal_params, sensor_delay_aud, sensor_delay_som, actuator_delay, output_dir=run_dir)
     elif calibrate_opt == 'PySwarms':
         calibrator = PitchPertCalibrator(
             params_obj=params_obj,
@@ -177,16 +159,8 @@ def run_calibration(calibrate_opt, params_obj, target_response, pert_signal, T_s
         print('mse_history', mse_history)
         print(f'Results saved to: {run_dir}')
 
-        if params_obj.system_type == 'DIVA':
-            sensor_delay_aud = int(cal_params.tau_A)
-            sensor_delay_som = int(cal_params.tau_S)
-            actuator_delay = None
-        else:
-            sensor_delay_aud = int(cal_params.sensor_delay_aud)
-            sensor_delay_som = int(cal_params.sensor_delay_som)
-            actuator_delay = int(cal_params.actuator_delay)
 
-        readout_optimized_params(cal_params, sensor_delay_aud, sensor_delay_som, actuator_delay, output_dir=run_dir)
+        
     elif calibrate_opt == 'PySwarms Two Layer':
         calibrator = PitchPertCalibrator(
             params_obj=params_obj,
@@ -198,13 +172,12 @@ def run_calibration(calibrate_opt, params_obj, target_response, pert_signal, T_s
             sensor_processor=sensor_processor
         )
         cal_params, mse_history, run_dir = calibrator.pyswarms_twolayer_calibrate(
-            num_particles=params_obj.cal_set_dict['particle_size'],
-            max_iters=params_obj.cal_set_dict['iterations'],
-            convergence_tol=params_obj.cal_set_dict['tolerance'],
-            runs=params_obj.cal_set_dict['runs'],
-            log_interval=1,  
-            save_interval=100,  
-            output_dir=None  # Uses default output directory
+            upper_particles=50,    # Start small
+            upper_iters=1,        # Few iterations initially
+            upper_runs=1,          # Few runs initially
+            lower_particles=200,   # More particles for gains
+            lower_iters=1,        # Few iterations for gains
+            lower_runs=1           # Single run for gains
         )
         
     else:
@@ -224,14 +197,17 @@ def run_calibration(calibrate_opt, params_obj, target_response, pert_signal, T_s
         )
         mse_history = calibrator.eval_only(params_obj)
 
-        if params_obj.system_type == 'DIVA':
-            sensor_delay_aud = int(cal_params.tau_A)
-            sensor_delay_som = int(cal_params.tau_S)
-            actuator_delay = None
-        else:
-            sensor_delay_aud = int(cal_params.sensor_delay_aud)
-            sensor_delay_som = int(cal_params.sensor_delay_som)
-            actuator_delay = int(cal_params.actuator_delay)
+    if params_obj.system_type == 'DIVA':
+        sensor_delay_aud = int(cal_params.tau_A)
+        sensor_delay_som = int(cal_params.tau_S)
+        actuator_delay = None
+    else:
+        sensor_delay_aud = int(cal_params.sensor_delay_aud)
+        sensor_delay_som = int(cal_params.sensor_delay_som)
+        actuator_delay = int(cal_params.actuator_delay)
+
+            
+    readout_optimized_params(cal_params, sensor_delay_aud, sensor_delay_som, actuator_delay, output_dir=run_dir)        
 
     return cal_params, mse_history, run_dir, sensor_delay_aud, sensor_delay_som, actuator_delay, pitch_pert_data
 
