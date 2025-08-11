@@ -63,6 +63,12 @@ def get_current_params(params_obj, param_config, cal_only=False, null_values=Non
         elif null_values=='expt config':
             current_params[param_name] = getattr(params_obj, param_name)
             print(f'Expt config {param_name}: {current_params[param_name]}')
+        elif null_values=='upper layer':
+            current_params[param_name] = PARAM_NULL_VALUES[params_obj.system_type]['upper layer'][param_name]
+            print(f'Upper layer {param_name}: {current_params[param_name]}')
+        elif null_values=='lower layer':
+            current_params[param_name] = PARAM_NULL_VALUES[params_obj.system_type]['lower layer'][param_name]
+            print(f'Lower layer {param_name}: {current_params[param_name]}')
         else:
             print('WARNING: Unlisted null_values option')
 

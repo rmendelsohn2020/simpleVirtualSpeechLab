@@ -77,7 +77,7 @@ def _initialize_global_data(params_obj, target_response, pert_signal, T_sim,
             params_obj.system_type, arb_name=params_obj.arb_name
         )
 
-def _standalone_objective_function(params):
+def _standalone_objective_function(params, null_values_spec=None):
     """
     Standalone objective function that can be pickled for multiprocessing.
     
@@ -98,7 +98,7 @@ def _standalone_objective_function(params):
         
         for i in range(params.shape[0]):
             particle_params = params[i]
-            costs[i] = _evaluate_single_particle_standalone(particle_params)
+            costs[i] = _evaluate_single_particle_standalone(particle_params, null_values_spec=null_values_spec)
             
             # Handle infinite values
             if np.isinf(costs[i]):
@@ -107,12 +107,12 @@ def _standalone_objective_function(params):
         return costs
     else:
         # Handle single particle evaluation
-        cost = _evaluate_single_particle_standalone(params)
+        cost = _evaluate_single_particle_standalone(params, null_values_spec=null_values_spec)
         if np.isinf(cost):
             cost = 1e10
         return cost
 
-def _evaluate_single_particle_standalone(params):
+def _evaluate_single_particle_standalone(params, null_values_spec=None):
     """
     Evaluate a single particle's parameters (standalone version).
     
@@ -123,6 +123,11 @@ def _evaluate_single_particle_standalone(params):
         MSE value for this particle
     """
     global _global_calibrator_data
+
+    if null_values_spec is not None:
+        null_values = null_values_spec
+    else:
+        null_values = _global_calibrator_data['cal_set_dict']['null_values']
     
     # Create current_params dict from the parameter array
     temp_param_dict = {}
@@ -155,7 +160,7 @@ def _evaluate_single_particle_standalone(params):
         recreated_params_obj,  # Use recreated params_obj instead of simple_obj
         _global_calibrator_data['param_config'], 
         cal_only=True, 
-        null_values=_global_calibrator_data['cal_set_dict'].get('null_values', False), 
+        null_values=null_values, 
         params=temp_params
     )
     
@@ -205,3 +210,5 @@ def _evaluate_single_particle_standalone(params):
     
     mse = system.mse(system_response_truncated, _global_calibrator_data['target_response'], check_stability=True)
     return mse
+
+    

@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 import os
@@ -122,7 +124,7 @@ class PitchPertCalibrator:
             print('Single particle evaluation')
             return self._evaluate_single_particle(params)
     
-    def _evaluate_single_particle(self, params):
+    def _evaluate_single_particle(self, params, null_values_spec=None):
         """
         Evaluate a single particle's parameters.
         
@@ -133,7 +135,7 @@ class PitchPertCalibrator:
             MSE value for this particle
         """
         print('single particle params:', params)
-        self._set_current_params(params)
+        self._set_current_params(params, null_values_spec=null_values_spec)
         print('objective function current_params', self.current_params)
         
         if self.params_obj.system_type == 'DIVA':
@@ -239,11 +241,7 @@ class PitchPertCalibrator:
         Returns:
             tuple: (optimized_params, mse_history, run_dir) where run_dir is the timestamped output directory
         """
-        import os
-        import json
-        from datetime import datetime
-        import matplotlib
-        matplotlib.use('Agg')  # Use non-interactive backend for SSH
+        plt.use('Agg')  # Use non-interactive backend for SSH
         
         # Setup output directory
         if output_dir is None:
@@ -467,7 +465,7 @@ class PitchPertCalibrator:
         return self.params_obj, best_overall_rmse, run_dir
 
     def pyswarms_calibrate(self, num_particles=10000, max_iters=1000, convergence_tol=0.01, runs=10, 
-                            log_interval=1, save_interval=50, output_dir=None):
+                            log_interval=1, save_interval=50, output_dir=None, custom_objective=None, null_values=None):
         """
         PySwarms calibration with comprehensive logging and monitoring.
         
@@ -483,12 +481,7 @@ class PitchPertCalibrator:
         Returns:
             tuple: (optimized_params, mse_history, run_dir) where run_dir is the timestamped output directory
         """
-        import os
-        import json
-        from datetime import datetime
-        import matplotlib
-        matplotlib.use('Agg')  # Use non-interactive backend for SSH
-        
+    
         # Setup output directory
         if output_dir is None:
             from utils.get_configs import get_paths
@@ -524,7 +517,7 @@ class PitchPertCalibrator:
         )
 
         # Initialize tracking variables 
-        param_config, bounds, x0, current_params = calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='PySwarms', null_values=False)
+        param_config, bounds, x0, current_params = calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='PySwarms', null_values=null_values)
         bounds = np.array(bounds)  # Convert to numpy array for indexing
         print('bounds', bounds)
         
@@ -596,9 +589,10 @@ class PitchPertCalibrator:
             # since PySwarms doesn't support callbacks in the same way
             
             # Run optimization
+            set_objective_function = custom_objective if custom_objective is not None else _standalone_objective_function
 
             best_cost, best_pos = optimizer.optimize(
-                _standalone_objective_function,  # Use standalone function instead of self.objective_function
+                objective_func=set_objective_function,
                 n_processes=psutil.cpu_count(logical=False)-2,
                 iters=max_iters,
                 verbose=False
@@ -680,6 +674,75 @@ class PitchPertCalibrator:
         self._save_final_results(run_dir, best_overall_params, best_overall_rmse, progress_data)
         
         return self.params_obj, best_overall_rmse, run_dir
+
+    def pyswarms_twolayer_calibrate(self, num_particles=10000, max_iters=1000, convergence_tol=0.01, runs=10, 
+                            log_interval=1, save_interval=50, output_dir=None):
+        """
+        PySwarms calibration with two-layer structure.
+        """
+
+        upper_calibrator = PitchPertCalibrator(
+            params_obj=self.params_obj,
+            target_response=self.target_response,
+            pert_signal=self.pert_signal,
+            T_sim=self.T_sim,
+            truncate_start=self.truncate_start,
+            truncate_end=self.truncate_end,
+            sensor_processor=self.sensor_processor
+        )
+        cal_params, mse_history, run_dir = upper_calibrator.pyswarms_calibrate(
+            num_particles=num_particles,
+            max_iters=max_iters,
+            convergence_tol=convergence_tol,
+            runs=runs,
+            log_interval=log_interval,
+            save_interval=save_interval,
+            output_dir=output_dir,
+            custom_objective=self.upper_layer_objective,
+            null_values='upper layer'
+        )
+
+        cost = self.upper_layer_objective(cal_params)
+        return cost
+
+        
+
+    def upper_layer_objective(self, params):
+        _initialize_global_data(
+            self.params_obj,
+            self.target_response,
+            self.pert_signal,
+            self.T_sim,
+            self.truncate_start,
+            self.truncate_end,
+            self.sensor_processor
+        )
+        lower_calibrator = PitchPertCalibrator(
+            params_obj=self.params_obj,
+            target_response=self.target_response,
+            pert_signal=self.pert_signal,
+            T_sim=self.T_sim,
+            truncate_start=self.truncate_start,
+            truncate_end=self.truncate_end,
+            sensor_processor=self.sensor_processor
+        )
+
+        cal_params, mse_history, run_dir = lower_calibrator.pyswarms_calibrate(
+            num_particles=self.params_obj.cal_set_dict['particle_size'],
+            max_iters=self.params_obj.cal_set_dict['iterations'],
+            convergence_tol=self.params_obj.cal_set_dict['tolerance'],
+            runs=self.params_obj.cal_set_dict['runs'],
+            log_interval=1,  
+            save_interval=100,  
+            output_dir=None,
+            null_values='lower layer'
+        )
+
+        cost = self.eval_only(cal_params)
+        return cost
+
+
+
 
     def eval_only(self, params):
         """
@@ -924,9 +987,15 @@ class PitchPertCalibrator:
         calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='After Applying Optimized Params')
         print('- END: apply_optimized_params')
 
-    def _set_current_params(self, params):
+    def _set_current_params(self, params, null_values_spec=None):
         """Set current_params dict to params"""
         print('params_obj type', type(self.params_obj))
+
+        if null_values_spec is not None:
+            null_values = null_values_spec
+        else:
+            null_values = self.params_obj.cal_set_dict['null_values']
+
         if self.params_obj.system_type == 'DIVA':
                 config = get_params_for_implementation(self.params_obj.system_type, kearney_name=self.params_obj.kearney_name)
         elif self.params_obj.system_type == 'Template':
@@ -954,7 +1023,7 @@ class PitchPertCalibrator:
         else:
             temp_params = params
             
-        current_params= get_current_params(self.params_obj, config, cal_only=True, null_values=self.params_obj.cal_set_dict['null_values'], params=temp_params)
+        current_params= get_current_params(self.params_obj, config, cal_only=True, null_values=null_values, params=temp_params)
         
         self.current_params = current_params
         

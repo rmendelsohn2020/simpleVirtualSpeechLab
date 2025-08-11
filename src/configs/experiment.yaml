@@ -5,10 +5,10 @@ data:
   trial_ID: 1
 
 calibration:
-  fit_method: 'PySwarms'
+  fit_method: 'PySwarms Two Layer'
   tolerance: 0.001
   particle_size: 1000
-  iterations: 1000
+  iterations: 1
   runs: 1
   null_values: 'expt config' # 'expt config', 'null', None (For parameters not used in fitting)
 

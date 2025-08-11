@@ -81,14 +81,15 @@ def get_params():
         trial_ID = config_expt['data']['trial_ID']  
     fit_method = config_expt['calibration']['fit_method']
     null_values = config_expt['calibration']['null_values']
-    if fit_method == 'Particle Swarm' or fit_method == 'PySwarms':
+    if fit_method == 'Particle Swarm' or fit_method == 'PySwarms' or fit_method == 'PySwarms Two Layer':
+        print('fit_method', fit_method)
         tolerance = config_expt['calibration']['tolerance']
         particle_size = config_expt['calibration']['particle_size']
         iterations = config_expt['calibration']['iterations']
         runs = config_expt['calibration']['runs']
         if fit_method == 'Particle Swarm':
             cal_set_dict = {'fit_method': fit_method, 'tolerance': tolerance, 'particle_size': particle_size, 'iterations': iterations, 'runs': runs, 'null_values': null_values}
-        elif fit_method == 'PySwarms':
+        elif fit_method == 'PySwarms' or fit_method == 'PySwarms Two Layer':
             c1 = config_expt['calibration']['c1']
             c2 = config_expt['calibration']['c2']
             w = config_expt['calibration']['w']

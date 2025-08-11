@@ -148,6 +148,21 @@ PARAM_CONFIGS = {
             'sensor_delay_som',
             'actuator_delay'
             ],
+            'upper layer': [
+                'A',
+                'B',
+                'C_aud',
+                'C_som'
+            ],
+            'lower layer': [
+                'K_aud',
+                'K_som',
+                'L_aud',
+                'L_som',
+                'sensor_delay_aud',
+                'sensor_delay_som',
+                'actuator_delay'
+            ],
             'T1': [
                 'K_aud',
                 'K_som',

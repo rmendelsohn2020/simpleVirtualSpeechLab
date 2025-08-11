@@ -187,6 +187,26 @@ def run_calibration(calibrate_opt, params_obj, target_response, pert_signal, T_s
             actuator_delay = int(cal_params.actuator_delay)
 
         readout_optimized_params(cal_params, sensor_delay_aud, sensor_delay_som, actuator_delay, output_dir=run_dir)
+    elif calibrate_opt == 'PySwarms Two Layer':
+        calibrator = PitchPertCalibrator(
+            params_obj=params_obj,
+            target_response=target_response,
+            pert_signal=pert_signal,
+            T_sim=T_sim,
+            truncate_start=truncate_start,
+            truncate_end=truncate_end,
+            sensor_processor=sensor_processor
+        )
+        cal_params, mse_history, run_dir = calibrator.pyswarms_twolayer_calibrate(
+            num_particles=params_obj.cal_set_dict['particle_size'],
+            max_iters=params_obj.cal_set_dict['iterations'],
+            convergence_tol=params_obj.cal_set_dict['tolerance'],
+            runs=params_obj.cal_set_dict['runs'],
+            log_interval=1,  
+            save_interval=100,  
+            output_dir=None  # Uses default output directory
+        )
+        
     else:
         cal_params = params_obj
         run_dir = fig_save_path + '/Sim_Run_Active' #_'+ datetime.now().strftime("%Y%m%d_%H%M%S")
