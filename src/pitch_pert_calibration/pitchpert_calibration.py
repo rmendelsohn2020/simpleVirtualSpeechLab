@@ -913,8 +913,11 @@ class PitchPertCalibrator:
         """
     
         # Setup output directory using logging utility
-        run_dir, timestamp = self.logging_utility.create_timestamped_directory(prefix="pyswarms_run")
-        
+        if output_dir is None:
+            run_dir, timestamp = self.logging_utility.create_timestamped_directory(prefix="pyswarms_run")
+        else:
+            run_dir = output_dir
+        print('run_dir', run_dir)
         # Setup logging using logging utility
         log_message, log_file, progress_file = self.logging_utility.setup_logging_environment(run_dir)
 
@@ -983,6 +986,9 @@ class PitchPertCalibrator:
                 options=options,
                 bounds=pyswarms_bounds
             )
+
+            optimizer.ftol = 1e-6
+            optimizer.ftol_iter = 5
             
             # Run-specific progress tracking using logging utility
             run_progress = self.logging_utility.initialize_run_progress(run + 1)
@@ -1081,7 +1087,7 @@ class PitchPertCalibrator:
         # Save final results
         self._save_final_results(run_dir, best_overall_params, best_overall_rmse, progress_data)
         
-        return self.params_obj, best_overall_rmse, run_dir
+        return self.params_obj, best_overall_rmse, run_dir, best_overall_params
 
 
     def pyswarms_twolayer_calibrate(self, upper_particles=100, upper_iters=50, upper_runs=3,
@@ -1107,8 +1113,10 @@ class PitchPertCalibrator:
         lower_layer_params = ['K_aud', 'K_som', 'L_aud', 'L_som']
         
         # Setup output directory using logging utility
+        
         run_dir, timestamp = self.logging_utility.create_timestamped_directory(prefix="twolayer_run")
         
+        print('run_dir', run_dir)
         # Setup logging using logging utility with custom filename
         log_message, log_file, progress_file = self.logging_utility.setup_logging_environment(
             run_dir, log_filename="twolayer_optimization_log.txt"
@@ -1169,6 +1177,7 @@ class PitchPertCalibrator:
         self._upper_layer_logging_utility = self.logging_utility
         self._upper_layer_run_dir = run_dir
         self._upper_layer_log_message = log_message
+        self._upper_particles = upper_particles
         
         # Initialize tracking for upper layer optimization
         self._upper_layer_call_count = 0
@@ -1202,7 +1211,7 @@ class PitchPertCalibrator:
         log_message("Starting upper layer optimization (system parameters)", True)
         start_time = datetime.now()
         
-        cal_params, mse_history, upper_run_dir = upper_calibrator.pyswarms_calibrate(
+        cal_params, mse_history, upper_run_dir, best_params = upper_calibrator.pyswarms_calibrate(
             num_particles=upper_particles,
             max_iters=upper_iters,
             convergence_tol=convergence_tol,
@@ -1223,8 +1232,8 @@ class PitchPertCalibrator:
         if hasattr(self, '_upper_layer_call_count') and hasattr(self, '_upper_layer_best_cost'):
             self.logging_utility.log_upper_layer_summary(
                 log_message,
-                self._upper_layer_best_params,
-                self._upper_layer_best_cost,
+                cal_params,
+                mse_history,
                 self._upper_layer_call_count,
                 upper_duration
             )
@@ -1233,32 +1242,43 @@ class PitchPertCalibrator:
         self.logging_utility.create_twolayer_summary(
             run_dir, cal_params, None, mse_history, upper_duration, upper_run_dir
         )
-        print('mse_history', mse_history)
-        best_overall_rmse = mse_history
-
         
-        return self.params_obj, best_overall_rmse, run_dir
+        return self.params_obj, mse_history, run_dir, best_params
 
     def upper_layer_objective(self, params):
         """
         Objective function for upper layer that runs lower layer optimization.
         This is called for each particle in the upper layer swarm.
         """
+        
+        
+        # Handle PySwarms vectorized evaluation (multiple particles)
+        if isinstance(params, np.ndarray) and params.ndim == 2:
+            # Vectorized evaluation: params is a 2D array of shape (n_particles, n_params)
+            # We need to evaluate each particle separately
+            costs = np.zeros(params.shape[0])
+            for i in range(params.shape[0]):
+                particle_params = params[i]
+                costs[i] = self._upper_layer_evaluate_single_particle(particle_params)
+                print(f'particle {i}, cost {costs[i]}')
+            return costs
+
+    def _upper_layer_evaluate_single_particle(self, particle_params):
         # Increment call counter and track progress
         if hasattr(self, '_upper_layer_call_count'):
             self._upper_layer_call_count += 1
-            call_num = self._upper_layer_call_count
+            self.call_num = self._upper_layer_call_count
         else:
-            call_num = "unknown"
+            self.call_num = "unknown"
         
         # Use the logging utility if available
         if hasattr(self, '_upper_layer_log_message'):
-            log_message = self._upper_layer_log_message
-            log_message(f"Upper layer objective call #{call_num} with params: {params.shape}", False)
+            self.log_message = self._upper_layer_log_message
+            self.log_message(f"Upper layer objective call #{self.call_num} with params: {particle_params.shape}", False)
         else:
             # Fallback logging if no utility available
-            print(f"Upper layer objective call #{call_num} with params: {params.shape}")
-        
+            print(f"Upper layer objective call #{self.call_num} with params: {particle_params.shape}")
+
         # Initialize global data for this evaluation
         _initialize_global_data(
             self.params_obj,
@@ -1284,71 +1304,53 @@ class PitchPertCalibrator:
         # Run lower layer optimization for these upper layer parameters
         try:
             if hasattr(self, '_upper_layer_log_message'):
-                log_message(f"Call #{call_num}: Starting lower layer optimization for upper params: {params.shape}", False)
-                log_message(f"Call #{call_num}: Lower layer config: particles={self._lower_layer_config['particles']}, "
-                          f"iterations={self._lower_layer_config['iterations']}, "
-                          f"runs={self._lower_layer_config['runs']}", False)
+                self.log_message(f"Call #{self.call_num}: Starting lower layer optimization for upper params: {particle_params.shape}", False)
+                self.log_message(f"Call #{self.call_num}: Lower layer config: particles={self._lower_layer_config['particles']}, "
+                        f"iterations={self._lower_layer_config['iterations']}, "
+                        f"runs={self._lower_layer_config['runs']}", False)
             
-            cal_params, mse_history, lower_run_dir = lower_calibrator.pyswarms_calibrate(
+            cal_params, mse_history, lower_run_dir, best_params = lower_calibrator.pyswarms_calibrate(
                 num_particles=self._lower_layer_config['particles'],
                 max_iters=self._lower_layer_config['iterations'],
                 convergence_tol=self._lower_layer_config['convergence_tol'],
                 runs=self._lower_layer_config['runs'],
                 log_interval=self._lower_layer_config['log_interval'],
                 save_interval=self._lower_layer_config['save_interval'],
-                parallel_opt=False,
-                output_dir=None,
+                parallel_opt=True,
+                output_dir=self._upper_layer_run_dir,
                 null_values='lower layer'
             )
             
             if hasattr(self, '_upper_layer_log_message'):
-                log_message(f"Call #{call_num}: Lower layer optimization completed successfully", False)
-                log_message(f"Call #{call_num}: Lower layer best params: {cal_params}", False)
-                log_message(f"Call #{call_num}: Lower layer best RMSE: {mse_history}", False)
+                self.log_message(f"Call #{self.call_num}: Lower layer optimization completed successfully", False)
+                self.log_message(f"Call #{self.call_num}: Lower layer best params: {cal_params}", False)
+                self.log_message(f"Call #{self.call_num}: Lower YOOHOO! layer best RMSE: {mse_history}", False)
             
             # Evaluate the combined system with both upper and lower layer parameters
-            cost = self._evaluate_combined_system(params, cal_params)
-            
-            # Track best results
-            if hasattr(self, '_upper_layer_best_cost') and cost < self._upper_layer_best_cost:
-                self._upper_layer_best_cost = cost
-                self._upper_layer_best_params = params.copy() if hasattr(params, 'copy') else params
-                if hasattr(self, '_upper_layer_log_message'):
-                    log_message(f"Call #{call_num}: NEW BEST! Combined cost improved to {cost:.6f}", True)
-            
+            cost = mse_history  # Use the best RMSE from lower layer
+            print('pre-dict')
+            best_params_dict = self._get_parameter_dict(best_params)
+            print('post-dict')
             if hasattr(self, '_upper_layer_log_message'):
-                log_message(f"Call #{call_num}: Combined system evaluation completed. Total cost: {cost:.6f}", False)
+                self.log_message(f"Call #{self.call_num}: Combined system evaluation completed. Total cost: {cost:.6f}", False)
                 
-                # Log progress summary
-                if hasattr(self, '_upper_layer_call_count'):
-                    self.logging_utility.log_upper_layer_progress(
-                        log_message, call_num, "unknown", params, cost
-                    )
-            
+            # Log progress summary
+            if hasattr(self, '_upper_layer_call_count'):
+                self.logging_utility.log_upper_layer_progress(
+                    self.log_message, self.call_num, self._upper_particles, best_params_dict, cost
+                )
+            print(f'particle {self.call_num}, cost {cost}')
             return cost
             
         except Exception as e:
-            error_msg = f"Call #{call_num}: Error in lower layer optimization: {e}"
+            error_msg = f"Call #{self.call_num}: Error in lower layer optimization: {e}"
             if hasattr(self, '_upper_layer_log_message'):
-                log_message(error_msg, False)
+                self.log_message(error_msg, False)
             else:
                 print(error_msg)
             return 1e10  # Return high cost for failed evaluations
 
-    def _evaluate_combined_system(self, upper_params, lower_params):
-        """
-        Evaluate the system with both upper and lower layer parameters combined.
-        """
-        # Combine the parameters
-        combined_params = np.concatenate([upper_params, lower_params])
-        
-        # Set the current parameters
-        self._set_current_params(combined_params, null_values_spec=None)
-        
-        # Run simulation and return MSE
-        return self._evaluate_single_particle(combined_params)
-
-
+    
     def eval_only(self, params):
         """
         Evaluate the objective function only.
@@ -1383,6 +1385,7 @@ class PitchPertCalibrator:
         if self.params_obj.system_type == 'DIVA':
             config = get_params_for_implementation(self.params_obj.system_type, kearney_name=self.params_obj.kearney_name)
         elif self.params_obj.system_type == 'Template':
+            print('dict-related error')
             config = get_params_for_implementation(self.params_obj.system_type, arb_name=self.params_obj.arb_name)
         return {param_name: value for param_name, value in zip(config, best_params)}
     

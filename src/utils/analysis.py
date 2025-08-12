@@ -8,9 +8,11 @@ class AnalysisMixin:
         sim_rmse = np.sqrt(sim_mse)
         return sim_rmse 
     
-    def mse(self, system_response, target_response, check_stability=False):
+    def mse(self, system_response, target_response, check_stability=False, full_data2check=None):
+        if full_data2check is None:
+            full_data2check = system_response
         if check_stability:
-            if np.any(np.abs(system_response) > 1e6):
+            if np.any(np.abs(full_data2check) > 1e6):
                 return 1e12
             
         sim_dif = system_response - target_response

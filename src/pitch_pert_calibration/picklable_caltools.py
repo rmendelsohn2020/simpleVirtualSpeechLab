@@ -212,7 +212,7 @@ def _evaluate_single_particle_standalone(params, null_values_spec=None):
         _global_calibrator_data['truncate_end']
     )
     
-    mse = system.mse(system_response_truncated, _global_calibrator_data['target_response'], check_stability=True)
+    mse = system.mse(system_response_truncated, _global_calibrator_data['target_response'], check_stability=True, full_data2check=system.x)
     return mse
 
     # _evaluate_upper_particle_standalone(params, null_values_spec=null_values_spec)

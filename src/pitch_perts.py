@@ -153,8 +153,9 @@ def run_calibration(calibrate_opt, params_obj, target_response, pert_signal, T_s
             runs=params_obj.cal_set_dict['runs'],
             log_interval=1,  
             save_interval=100,  
-            output_dir=None  # Uses default output directory
-        )
+            output_dir=None,
+            parallel_opt=True  # Uses default output directory
+        )[0:3]
 
         print('mse_history', mse_history)
         print(f'Results saved to: {run_dir}')
@@ -172,13 +173,13 @@ def run_calibration(calibrate_opt, params_obj, target_response, pert_signal, T_s
             sensor_processor=sensor_processor
         )
         cal_params, mse_history, run_dir = calibrator.pyswarms_twolayer_calibrate(
-            upper_particles=50,    # Start small
-            upper_iters=1,        # Few iterations initially
+            upper_particles=100,    # Start small
+            upper_iters=10,        # Few iterations initially
             upper_runs=1,          # Few runs initially
-            lower_particles=200,   # More particles for gains
+            lower_particles=1000,   # More particles for gains
             lower_iters=1,        # Few iterations for gains
             lower_runs=1           # Single run for gains
-        )
+        )[0:3]
         
     else:
         cal_params = params_obj
