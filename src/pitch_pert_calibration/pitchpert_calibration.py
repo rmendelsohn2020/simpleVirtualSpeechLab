@@ -380,7 +380,7 @@ class CalibrationLoggingUtility:
             f.write(f"Main results directory: {run_dir}\n")
     
     def log_upper_layer_progress(self, log_message_func, particle_number, total_particles, 
-                                upper_params, lower_cost, iteration_number=None):
+                                upper_params, lower_params, lower_cost, iteration_number=None):
         """
         Log progress for upper layer optimization during two-layer nested calibration.
         
@@ -394,10 +394,10 @@ class CalibrationLoggingUtility:
         """
         if iteration_number is not None:
             log_message_func(f"Upper Layer - Iter {iteration_number}, Particle {particle_number}/{total_particles}: "
-                           f"Params={upper_params}, Lower Cost={lower_cost:.6f}", False)
+                           f"Upper Params={upper_params}, Lower Params={lower_params}, Lower Cost={lower_cost:.6f}", False)
         else:
             log_message_func(f"Upper Layer - Particle {particle_number}/{total_particles}: "
-                           f"Params={upper_params}, Lower Cost={lower_cost:.6f}", False)
+                           f"Upper Params={upper_params}, Lower Cost={lower_cost:.6f}", False)
     
     def log_upper_layer_summary(self, log_message_func, best_upper_params, best_combined_cost, 
                                total_particles_evaluated, total_duration):
@@ -931,9 +931,10 @@ class PitchPertCalibrator:
             self.truncate_end,
             self.sensor_processor
         )
-
+        if null_values is None:
+            null_values = self.params_obj.cal_set_dict['null_values']
         # Initialize tracking variables 
-        param_config, bounds, x0, current_params = calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='PySwarms', null_values=null_values)
+        param_config, bounds, x0, current_params = calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='PySwarms')
         bounds = np.array(bounds)  # Convert to numpy array for indexing
         print('bounds', bounds)
         
@@ -1076,6 +1077,8 @@ class PitchPertCalibrator:
         
         # Apply the best parameters to the model
         if best_overall_params is not None:
+            print('best_overall_params', best_overall_params)
+            print('arb_name', self.params_obj.arb_name)
             self.apply_optimized_params(best_overall_params, run_dir)
         
         # Create optimization summary using logging utility
@@ -1108,9 +1111,11 @@ class PitchPertCalibrator:
             save_interval: How often to save intermediate results
             output_dir: Directory to save outputs
         """
+        self.params_obj.arb_name = 'upper layer'
         # Define parameter layers
-        upper_layer_params = ['A', 'B', 'C_aud', 'C_som', 'sensor_delay_aud', 'sensor_delay_som', 'actuator_delay']
-        lower_layer_params = ['K_aud', 'K_som', 'L_aud', 'L_som']
+        upper_layer_params, bounds, x0, current_params = calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='PySwarms')
+        self.params_obj.arb_name = 'lower layer'
+        lower_layer_params, bounds, x0, current_params = calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='PySwarms')
         
         # Setup output directory using logging utility
         
@@ -1186,16 +1191,16 @@ class PitchPertCalibrator:
         
         # Initialize global data for multiprocessing BEFORE creating the calibrator
         
-        _initialize_global_data(
-            self.params_obj,
-            self.target_response,
-            self.pert_signal,
-            self.T_sim,
-            self.truncate_start,
-            self.truncate_end,
-            self.sensor_processor
-        )
-        
+        # _initialize_global_data(
+        #     self.params_obj,
+        #     self.target_response,
+        #     self.pert_signal,
+        #     self.T_sim,
+        #     self.truncate_start,
+        #     self.truncate_end,
+        #     self.sensor_processor
+        # )
+        print('upper_layer_params', upper_layer_params)
         # Create upper layer calibrator
         upper_calibrator = PitchPertCalibrator(
             params_obj=self.params_obj,
@@ -1221,12 +1226,15 @@ class PitchPertCalibrator:
             parallel_opt=False,
             output_dir=run_dir,
             custom_objective=self.upper_layer_objective,
-            null_values='upper layer'
+            null_values='expt config'
         )
         
         upper_duration = (datetime.now() - start_time).total_seconds()
         log_message(f"Upper layer completed in {upper_duration:.1f}s", True)
         #log_message(f"Best upper layer parameters: {}", True)
+
+        best_params_dict = self._get_parameter_dict(best_params)
+        log_message(f"Best upper layer parameters: {best_params_dict}", True)
 
         # Log final upper layer summary
         if hasattr(self, '_upper_layer_call_count') and hasattr(self, '_upper_layer_best_cost'):
@@ -1278,7 +1286,13 @@ class PitchPertCalibrator:
         else:
             # Fallback logging if no utility available
             print(f"Upper layer objective call #{self.call_num} with params: {particle_params.shape}")
-
+        
+        print('particle_params', particle_params)
+        #Set params_obj to upper layer params
+        self.params_obj.arb_name = 'upper layer'
+        current_upper_dict = self._get_parameter_dict(particle_params)
+        self.apply_optimized_params(particle_params, None)
+        self.params_obj.arb_name = 'lower layer'
         # Initialize global data for this evaluation
         _initialize_global_data(
             self.params_obj,
@@ -1318,13 +1332,13 @@ class PitchPertCalibrator:
                 save_interval=self._lower_layer_config['save_interval'],
                 parallel_opt=True,
                 output_dir=self._upper_layer_run_dir,
-                null_values='lower layer'
+                null_values='expt config'
             )
             
             if hasattr(self, '_upper_layer_log_message'):
                 self.log_message(f"Call #{self.call_num}: Lower layer optimization completed successfully", False)
                 self.log_message(f"Call #{self.call_num}: Lower layer best params: {cal_params}", False)
-                self.log_message(f"Call #{self.call_num}: Lower YOOHOO! layer best RMSE: {mse_history}", False)
+                self.log_message(f"Call #{self.call_num}: Lower layer best RMSE: {mse_history}", False)
             
             # Evaluate the combined system with both upper and lower layer parameters
             cost = mse_history  # Use the best RMSE from lower layer
@@ -1337,7 +1351,7 @@ class PitchPertCalibrator:
             # Log progress summary
             if hasattr(self, '_upper_layer_call_count'):
                 self.logging_utility.log_upper_layer_progress(
-                    self.log_message, self.call_num, self._upper_particles, best_params_dict, cost
+                    self.log_message, self.call_num, self._upper_particles, current_upper_dict, best_params_dict, cost
                 )
             print(f'particle {self.call_num}, cost {cost}')
             return cost
@@ -1385,7 +1399,6 @@ class PitchPertCalibrator:
         if self.params_obj.system_type == 'DIVA':
             config = get_params_for_implementation(self.params_obj.system_type, kearney_name=self.params_obj.kearney_name)
         elif self.params_obj.system_type == 'Template':
-            print('dict-related error')
             config = get_params_for_implementation(self.params_obj.system_type, arb_name=self.params_obj.arb_name)
         return {param_name: value for param_name, value in zip(config, best_params)}
     
@@ -1575,12 +1588,21 @@ class PitchPertCalibrator:
             optimized_params: Array of optimized parameter values
         """
         print('START: apply_optimized_params')
-        readout_optimized_params(self.params_obj, output_dir=run_dir)
         if optimized_params is not None:
             if self.params_obj.system_type == 'DIVA':
-                config = get_params_for_implementation(self.params_obj.system_type, kearney_name=self.params_obj.kearney_name)
+                kearney_name = self.params_obj.kearney_name
+                arb_name = None
             elif self.params_obj.system_type == 'Template':
-                config = get_params_for_implementation(self.params_obj.system_type, arb_name=self.params_obj.arb_name)
+                kearney_name = None
+                arb_name = self.params_obj.arb_name
+            else:
+                print('WARNING: Unlisted system type')
+                return
+
+        if optimized_params is not None:
+            print('pre-application readout')
+            readout_optimized_params(self.params_obj, output_dir=None)
+            config = get_params_for_implementation(self.params_obj.system_type, kearney_name=kearney_name, arb_name=arb_name)
             
             # Make optimized_params a dictionary
             optimized_params_dict = {
@@ -1591,8 +1613,11 @@ class PitchPertCalibrator:
             for param_name in config:  
                 if hasattr(self.params_obj, param_name):
                     setattr(self.params_obj, param_name, optimized_params_dict[param_name])
-        readout_optimized_params(self.params_obj, output_dir=run_dir)
-        calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='After Applying Optimized Params')
+    
+        if run_dir is not None:
+            print('post-application readout')
+            readout_optimized_params(self.params_obj, output_dir=run_dir, null_values=self.params_obj.cal_set_dict['null_values'])
+            calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='After Applying Optimized Params', null_values=self.params_obj.cal_set_dict['null_values'])
         print('- END: apply_optimized_params')
 
     def _set_current_params(self, params, null_values_spec=None):
@@ -1630,12 +1655,9 @@ class PitchPertCalibrator:
             temp_params = BlankParamsObject(**param_dict)
         else:
             temp_params = params
-            
+        print('_set_current_params: null_values_spec', null_values_spec)    
         current_params= get_current_params(self.params_obj, config, cal_only=True, null_values=null_values, params=temp_params)
         
         self.current_params = current_params
         
-    def _apply_params_to_model(self, best_params):
-        # Implementation of _apply_params_to_model method
-        pass
 

@@ -127,11 +127,14 @@ def _evaluate_single_particle_standalone(params, null_values_spec=None):
         MSE value for this particle
     """
     global _global_calibrator_data
+    print('particle_params', params)
 
     if null_values_spec is not None:
         null_values = null_values_spec
+        print('null_values_spec', null_values_spec)
     else:
         null_values = _global_calibrator_data['cal_set_dict']['null_values']
+        print('null_values, default', null_values)
     
     # Create current_params dict from the parameter array
     temp_param_dict = {}
@@ -160,6 +163,7 @@ def _evaluate_single_particle_standalone(params, null_values_spec=None):
     recreated_params_obj = BlankParamsObject(**perm_param_dict)
     
     # Get current parameters using the calibration function
+    print('null_values', null_values)
     current_params = get_current_params(
         recreated_params_obj,  # Use recreated params_obj instead of simple_obj
         _global_calibrator_data['param_config'], 

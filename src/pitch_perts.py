@@ -33,10 +33,16 @@ if params_obj.system_type == 'DIVA':
     units = 'multiplier'
     sensor_processor = get_sensor_processor(params_obj.kearney_name)
 elif params_obj.system_type == 'Template':
-    system_choice = 'Relative'
     units = 'cents'
-    #sensor_processor = RelativeSensorProcessor()
-    sensor_processor = AbsoluteSensorProcessor()
+    if params_obj.implementation == 'Relative':
+        system_choice = 'Relative'
+        sensor_processor = RelativeSensorProcessor()
+    elif params_obj.implementation == 'Absolute':
+        system_choice = 'Absolute'
+        sensor_processor = AbsoluteSensorProcessor()
+    else:
+        print('No implementation specified')
+        sensor_processor = None
     print('params_obj.arb_name', params_obj.arb_name)
 else:
     print('No system type specified')
@@ -173,10 +179,10 @@ def run_calibration(calibrate_opt, params_obj, target_response, pert_signal, T_s
             sensor_processor=sensor_processor
         )
         cal_params, mse_history, run_dir = calibrator.pyswarms_twolayer_calibrate(
-            upper_particles=100,    # Start small
-            upper_iters=10,        # Few iterations initially
+            upper_particles=10,    # Start small
+            upper_iters=1,        # Few iterations initially
             upper_runs=1,          # Few runs initially
-            lower_particles=1000,   # More particles for gains
+            lower_particles=10000,   # More particles for gains
             lower_iters=1,        # Few iterations for gains
             lower_runs=1           # Single run for gains
         )[0:3]
@@ -247,6 +253,7 @@ def run_simulation(cal_params, pert_signal, T_sim, truncate_start, truncate_end,
             # Convert ParamsObject to dictionary for Controller
         
         param_config = get_params_for_implementation(cal_params.system_type, arb_name=cal_params.arb_name, null_values=params_obj.cal_set_dict['null_values'])
+        print('run_simulation: null_values', params_obj.cal_set_dict['null_values'])
         params_dict = get_current_params(cal_params, param_config, cal_only=False, null_values=params_obj.cal_set_dict['null_values'])
         
         system = Controller(
@@ -262,9 +269,11 @@ def run_simulation(cal_params, pert_signal, T_sim, truncate_start, truncate_end,
         #system = Controller(sensor_processor=RelativeSensorProcessor(), input_A=cal_params.A_init, input_B=cal_params.B_init, input_C=cal_params.C_aud_init, ref_type=params_obj.ref_type, dist_custom=pert_signal.signal, dist_type=['Auditory'], timeseries=T_sim)    
         system.simulate_with_2sensors(delta_t_s_aud=sensor_delay_aud, delta_t_s_som=sensor_delay_som, delta_t_a=actuator_delay)
         #system.simulate_with_1sensor(delta_t_s=sensor_delay_aud, delta_t_a=actuator_delay)
+        
     elif system_choice == 'Absolute':
         # Convert ParamsObject to dictionary for Controller
         param_config = get_params_for_implementation(cal_params.system_type, arb_name=cal_params.arb_name, null_values=params_obj.cal_set_dict['null_values'])
+        print('run_simulation: null_values', params_obj.cal_set_dict['null_values'])
         params_dict = get_current_params(cal_params, param_config, cal_only=False, null_values=params_obj.cal_set_dict['null_values'])
         
         system = Controller(
@@ -276,6 +285,7 @@ def run_simulation(cal_params, pert_signal, T_sim, truncate_start, truncate_end,
                     timeseries=T_sim
                 )    
         system.simulate_with_2sensors(delta_t_s_aud=sensor_delay_aud, delta_t_s_som=sensor_delay_som, delta_t_a=actuator_delay)
+       
     elif system_choice == 'DIVA':
         # alpha_A = 2.0
         # alpha_S = 3.0
@@ -309,7 +319,7 @@ def run_simulation(cal_params, pert_signal, T_sim, truncate_start, truncate_end,
 
     #system.plot_transient('abs2sens', start_dist=pert_signal.start_ramp_up) 
     #system.plot_all('abs2sens', custom_sig='dist', fig_save_path=fig_save_path)
-
+    
     timeseries_truncated, system_response_truncated = truncate_data(T_sim, system.x, truncate_start, truncate_end)
     if system_choice == 'DIVA':
         aud_pert_truncated = truncate_data(T_sim, system.pert_P, truncate_start, truncate_end)[1]

@@ -35,7 +35,8 @@ perturbation:
     down_duration: 0.250  # Duration of the ramp down in seconds
 
 starting_params:
-  arb_name: 'all'
+  arb_name: 'upper layer'
+  implementation: 'Relative'
   delays:
     actuator: 3
     sensor:
@@ -52,6 +53,7 @@ starting_params:
     K_som: 0.15153
     L_som: 0.150506 
     Kf_som: 0.35
+
 
 diva_starting_params:
   kearney_name: 'D1'

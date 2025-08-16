@@ -14,6 +14,7 @@ def calibration_info_pack(params_obj, cal_only=False, print_opt=['print'], custo
         param_config = get_params_for_implementation(params_obj.system_type, params_obj.kearney_name, null_values=null_values)
         print('param_config', param_config)
     elif params_obj.system_type == 'Template':
+        print('params_obj.arb_name', params_obj.arb_name)
         param_config = get_params_for_implementation(params_obj.system_type, arb_name=params_obj.arb_name, null_values=null_values)
         print('param_config', param_config)
     else:
@@ -38,7 +39,6 @@ def calibration_info_pack(params_obj, cal_only=False, print_opt=['print'], custo
 
 def get_current_params(params_obj, param_config, cal_only=False, null_values=None, params=None):
     current_params = {}
-    
     if cal_only:
         if params_obj.system_type == 'DIVA':
             params_for_cal = get_params_for_implementation(params_obj.system_type, params_obj.kearney_name)
@@ -63,12 +63,6 @@ def get_current_params(params_obj, param_config, cal_only=False, null_values=Non
         elif null_values=='expt config':
             current_params[param_name] = getattr(params_obj, param_name)
             print(f'Expt config {param_name}: {current_params[param_name]}')
-        elif null_values=='upper layer':
-            current_params[param_name] = PARAM_NULL_VALUES[params_obj.system_type]['upper layer'][param_name]
-            print(f'Upper layer {param_name}: {current_params[param_name]}')
-        elif null_values=='lower layer':
-            current_params[param_name] = PARAM_NULL_VALUES[params_obj.system_type]['lower layer'][param_name]
-            print(f'Lower layer {param_name}: {current_params[param_name]}')
         else:
             print('WARNING: Unlisted null_values option')
 
@@ -122,7 +116,7 @@ def get_params_for_implementation(system_type, kearney_name=None, arb_name=None,
     else:
         return config.get('params', [])
 
-def readout_optimized_params(cal_params, sensor_delay_aud=None, sensor_delay_som=None, actuator_delay=None, format_opt=['txt','print'], output_dir=None):
+def readout_optimized_params(cal_params, sensor_delay_aud=None, sensor_delay_som=None, actuator_delay=None, format_opt=['txt','print'], output_dir=None, null_values=None):
     if output_dir is None:
         path_obj = get_paths()
         output_dir = path_obj.fig_save_path
@@ -134,12 +128,24 @@ def readout_optimized_params(cal_params, sensor_delay_aud=None, sensor_delay_som
 
     # Get the appropriate parameter list for this implementation
     if cal_params.system_type == 'DIVA' and hasattr(cal_params, 'kearney_name'):
-        params_list = get_params_for_implementation(cal_params.system_type, cal_params.kearney_name)
+        kearney_name = cal_params.kearney_nam
+        arb_name = None
     elif cal_params.system_type == 'Template' and hasattr(cal_params, 'arb_name'):
-        params_list = get_params_for_implementation(cal_params.system_type, arb_name=cal_params.arb_name)
+        kearney_name = None
+        arb_name = cal_params.arb_name
     else:
-        params_list = get_params_for_implementation(cal_params.system_type)
-        print('WARNING:Unlisted system type')
+        print('WARNING: Unlisted system type')
+        return
+    
+    if null_values is not None:
+        params_list = get_params_for_implementation(cal_params.system_type, kearney_name=kearney_name, arb_name=arb_name, null_values=null_values)
+        cal_params_list = get_params_for_implementation(cal_params.system_type, kearney_name=kearney_name, arb_name=arb_name)
+        print('params_list', params_list)
+        print('cal_params_list', cal_params_list)
+    else:
+        params_list = get_params_for_implementation(cal_params.system_type, kearney_name=kearney_name, arb_name=arb_name)
+        cal_params_list = params_list
+
    
     # Get title with kearney_name if available
     title = config['title']
@@ -148,14 +154,17 @@ def readout_optimized_params(cal_params, sensor_delay_aud=None, sensor_delay_som
     else:
         title = title.format(kearney_name='')
 
-    
+   
 
     if 'print' in format_opt:
         print(title)
         for param_name in params_list:
-            if hasattr(cal_params, param_name):
-                print(f'{param_name}: {getattr(cal_params, param_name)}')
-
+            if param_name not in cal_params_list:
+                null_label = null_values
+            else:
+                null_label = ''
+            print(f'{null_label} {param_name}: {getattr(cal_params, param_name)}')
+            
         print(f'sensor_delay_aud: {sensor_delay_aud}')
         print(f'sensor_delay_som: {sensor_delay_som}')
         print(f'actuator_delay: {actuator_delay}')
@@ -171,16 +180,21 @@ def readout_optimized_params(cal_params, sensor_delay_aud=None, sensor_delay_som
         with open(param_save_path, 'w') as f:
             f.write(f"{title}\n")
             f.write("-----------------\n")
+            f.write(f"kearney_name: {kearney_name}\n")
+            f.write(f"arb_name: {arb_name}\n")
             
             for param_name in params_list:
+                if param_name not in cal_params_list:
+                    null_label = null_values
+                else:
+                    null_label = ''
                 if hasattr(cal_params, param_name):
                     value = getattr(cal_params, param_name)
                     # Handle array parameters differently
                     if isinstance(value, (list, np.ndarray)):
-                        f.write(f"{param_name}:\n{value}\n\n")
+                        f.write(f"{null_label} {param_name}:\n{value}\n\n")
                     else:
-                        f.write(f"{param_name}: {value}\n")
-            
+                        f.write(f"{null_label} {param_name}: {value}\n")
             # Add delay information
             if cal_params.system_type == 'Template':
                 f.write(f"Auditory sensor delay: {sensor_delay_aud}\n")
