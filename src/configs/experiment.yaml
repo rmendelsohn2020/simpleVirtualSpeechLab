@@ -47,11 +47,11 @@ starting_params:
     B: [0.8]
     C_aud: 0.4
     C_som: 1
-    K_aud: 0.402553
-    L_aud: 0.08929
+    K_aud: 0.4
+    L_aud: 0.08
     Kf_aud: 0.35
-    K_som: 0.15153
-    L_som: 0.150506 
+    K_som: 0.15
+    L_som: 0.15
     Kf_som: 0.35
 
 

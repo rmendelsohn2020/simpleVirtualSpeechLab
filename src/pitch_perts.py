@@ -180,9 +180,9 @@ def run_calibration(calibrate_opt, params_obj, target_response, pert_signal, T_s
         )
         cal_params, mse_history, run_dir = calibrator.pyswarms_twolayer_calibrate(
             upper_particles=10,    # Start small
-            upper_iters=1,        # Few iterations initially
+            upper_iters=10,        # Few iterations initially
             upper_runs=1,          # Few runs initially
-            lower_particles=10000,   # More particles for gains
+            lower_particles=1000,   # More particles for gains
             lower_iters=1,        # Few iterations for gains
             lower_runs=1           # Single run for gains
         )[0:3]

@@ -941,6 +941,7 @@ class PitchPertCalibrator:
         # Convert bounds format for PySwarms: (lower_bounds, upper_bounds)
         lower_bounds = bounds[:, 0]  # First column contains lower bounds
         upper_bounds = bounds[:, 1]  # Second column contains upper bounds
+        print('custom_objective', custom_objective)
         pyswarms_bounds = (lower_bounds, upper_bounds)
         print('pyswarms_bounds format:', pyswarms_bounds)
         
@@ -999,7 +1000,7 @@ class PitchPertCalibrator:
             
             # Run optimization
             set_objective_function = custom_objective if custom_objective is not None else _standalone_objective_function
-
+            
 
             best_cost, best_pos = optimizer.optimize(
                 objective_func=set_objective_function,
@@ -1111,11 +1112,12 @@ class PitchPertCalibrator:
             save_interval: How often to save intermediate results
             output_dir: Directory to save outputs
         """
-        self.params_obj.arb_name = 'upper layer'
-        # Define parameter layers
-        upper_layer_params, bounds, x0, current_params = calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='PySwarms')
+        
         self.params_obj.arb_name = 'lower layer'
         lower_layer_params, bounds, x0, current_params = calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='PySwarms')
+        self.params_obj.arb_name = 'upper layer'
+        upper_layer_params, bounds, x0, current_params = calibration_info_pack(self.params_obj, print_opt=['print'], custom_label='PySwarms')
+        
         
         # Setup output directory using logging utility
         
@@ -1265,6 +1267,7 @@ class PitchPertCalibrator:
             # Vectorized evaluation: params is a 2D array of shape (n_particles, n_params)
             # We need to evaluate each particle separately
             costs = np.zeros(params.shape[0])
+            print('range(params.shape[0])', range(params.shape[0]))
             for i in range(params.shape[0]):
                 particle_params = params[i]
                 costs[i] = self._upper_layer_evaluate_single_particle(particle_params)
@@ -1287,7 +1290,7 @@ class PitchPertCalibrator:
             # Fallback logging if no utility available
             print(f"Upper layer objective call #{self.call_num} with params: {particle_params.shape}")
         
-        print('particle_params', particle_params)
+        print('upper layer eval particle_params', particle_params)
         #Set params_obj to upper layer params
         self.params_obj.arb_name = 'upper layer'
         current_upper_dict = self._get_parameter_dict(particle_params)
@@ -1354,6 +1357,7 @@ class PitchPertCalibrator:
                     self.log_message, self.call_num, self._upper_particles, current_upper_dict, best_params_dict, cost
                 )
             print(f'particle {self.call_num}, cost {cost}')
+            self.params_obj.arb_name = 'upper layer'
             return cost
             
         except Exception as e:
@@ -1362,6 +1366,7 @@ class PitchPertCalibrator:
                 self.log_message(error_msg, False)
             else:
                 print(error_msg)
+            self.params_obj.arb_name = 'upper layer'    
             return 1e10  # Return high cost for failed evaluations
 
     

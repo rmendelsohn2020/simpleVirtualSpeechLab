@@ -9,13 +9,16 @@ class BlankParamsObject:
             setattr(self, key, value)
 
 
-def calibration_info_pack(params_obj, cal_only=False, print_opt=['print'], custom_label='', null_values=None):
+def calibration_info_pack(params_obj, cal_only=False, print_opt=['print'], custom_label='', null_values=None, arb_name=None):
     if params_obj.system_type == 'DIVA':
         param_config = get_params_for_implementation(params_obj.system_type, params_obj.kearney_name, null_values=null_values)
         print('param_config', param_config)
     elif params_obj.system_type == 'Template':
-        print('params_obj.arb_name', params_obj.arb_name)
-        param_config = get_params_for_implementation(params_obj.system_type, arb_name=params_obj.arb_name, null_values=null_values)
+        if arb_name is None:
+            arb_name = params_obj.arb_name  
+            print('default arb_name:')
+        print('arb_name', params_obj.arb_name)
+        param_config = get_params_for_implementation(params_obj.system_type, arb_name=arb_name, null_values=null_values)
         print('param_config', param_config)
     else:
         param_config = get_params_for_implementation(params_obj.system_type)
